@@ -1,0 +1,530 @@
+{
+  "name": "Daily Capacity Sync - GHL Block Slots",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "1 0 * * *"
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Schedule Trigger - Midnight",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "notes": "Runs daily at 12:01 AM to sync capacity"
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "config1",
+              "name": "ghlLocationId",
+              "value": "YOUR_LOCATION_ID",
+              "type": "string"
+            },
+            {
+              "id": "config2",
+              "name": "ghlCalendarId",
+              "value": "YOUR_CALENDAR_ID",
+              "type": "string"
+            },
+            {
+              "id": "config3",
+              "name": "ghlMaxSlots",
+              "value": 5,
+              "type": "number"
+            },
+            {
+              "id": "config4",
+              "name": "googleSheetId",
+              "value": "YOUR_SHEET_ID",
+              "type": "string"
+            },
+            {
+              "id": "config5",
+              "name": "capacitySheetName",
+              "value": "Capacity",
+              "type": "string"
+            },
+            {
+              "id": "config6",
+              "name": "logsSheetName",
+              "value": "CapacitySyncLogs",
+              "type": "string"
+            },
+            {
+              "id": "config7",
+              "name": "daysAhead",
+              "value": 7,
+              "type": "number"
+            },
+            {
+              "id": "config8",
+              "name": "timezone",
+              "value": "America/New_York",
+              "type": "string"
+            },
+            {
+              "id": "config9",
+              "name": "timezoneOffset",
+              "value": "-05:00",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-config",
+      "name": "Set Config Variables",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3,
+      "position": [450, 300],
+      "notes": "Configure all IDs and settings here"
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{$json.googleSheetId}}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "={{$json.capacitySheetName}}"
+        },
+        "options": {
+          "rangeDefinition": "specifyRange",
+          "range": "A:G"
+        }
+      },
+      "id": "read-sheets",
+      "name": "Read Google Sheets - Capacity",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [650, 300],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_GOOGLE_SHEETS_CREDENTIAL_ID",
+          "name": "Google Sheets Account"
+        }
+      },
+      "notes": "Reads capacity configuration from Capacity sheet"
+    },
+    {
+      "parameters": {
+        "jsCode": "const daysAhead = $('Set Config Variables').item.json.daysAhead;\nconst items = $input.all();\n\nconst today = new Date();\ntoday.setHours(0, 0, 0, 0);\n\nconst maxDate = new Date(today);\nmaxDate.setDate(maxDate.getDate() + daysAhead);\n\nconst filteredItems = items.filter(item => {\n  const rowDate = new Date(item.json.date);\n  rowDate.setHours(0, 0, 0, 0);\n  return rowDate >= today && rowDate < maxDate;\n});\n\nconsole.log(`📅 Filtered ${filteredItems.length} rows for next ${daysAhead} days`);\n\nreturn filteredItems;"
+      },
+      "id": "filter-dates",
+      "name": "Filter - Next 7 Days Only",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [850, 300],
+      "notes": "Only process dates within next 7 days"
+    },
+    {
+      "parameters": {
+        "jsCode": "const config = $('Set Config Variables').item.json;\nconst calendarId = config.ghlCalendarId;\nconst locationId = config.ghlLocationId;\n\nconst today = new Date();\nconst startDate = today.toISOString();\n\nconst endDate = new Date(today);\nendDate.setDate(endDate.getDate() + config.daysAhead);\nconst endDateISO = endDate.toISOString();\n\nreturn [{\n  json: {\n    calendarId: calendarId,\n    locationId: locationId,\n    startDate: startDate,\n    endDate: endDateISO\n  }\n}];"
+      },
+      "id": "prep-cleanup",
+      "name": "Prepare Date Range for Cleanup",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1050, 300],
+      "notes": "Calculate date range for fetching existing blocks"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://services.gohighlevel.com/calendars/{{$json.calendarId}}/block-slots",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "locationId",
+              "value": "={{$json.locationId}}"
+            },
+            {
+              "name": "startDate",
+              "value": "={{$json.startDate}}"
+            },
+            {
+              "name": "endDate",
+              "value": "={{$json.endDate}}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "get-blocks",
+      "name": "Get Existing Block Slots",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1250, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "YOUR_GHL_API_CREDENTIAL_ID",
+          "name": "GHL API Key"
+        }
+      },
+      "notes": "Fetch all existing block slots from GHL"
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.item.json;\nconst events = response.events || [];\n\nconst autoBlocks = events.filter(event => {\n  return event.title && (\n    event.title.includes(\"Capacity Limiter\") ||\n    event.title.includes(\"🔒\") ||\n    (event.notes && event.notes.includes(\"Auto-block\"))\n  );\n});\n\nconsole.log(`🗑️ Found ${autoBlocks.length} auto-created blocks to delete`);\n\nreturn autoBlocks.map(block => ({\n  json: {\n    blockId: block.id,\n    calendarId: block.calendarId,\n    startTime: block.startTime,\n    title: block.title\n  }\n}));"
+      },
+      "id": "filter-auto-blocks",
+      "name": "Filter Auto-Created Blocks",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1450, 300],
+      "notes": "Only delete blocks created by automation"
+    },
+    {
+      "parameters": {
+        "method": "DELETE",
+        "url": "=https://services.gohighlevel.com/calendars/{{$('Set Config Variables').item.json.ghlCalendarId}}/block-slots/{{$json.blockId}}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          },
+          "batching": {
+            "batch": {
+              "batchSize": 10,
+              "batchInterval": 1000
+            }
+          }
+        }
+      },
+      "id": "delete-blocks",
+      "name": "Delete Old Blocks",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1650, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "YOUR_GHL_API_CREDENTIAL_ID",
+          "name": "GHL API Key"
+        }
+      },
+      "notes": "Delete old auto-created blocks (loops through all)"
+    },
+    {
+      "parameters": {
+        "jsCode": "const config = $('Set Config Variables').item.json;\nconst ghlMaxSlots = config.ghlMaxSlots;\nconst timezoneOffset = config.timezoneOffset;\n\nconst capacityRows = $('Filter - Next 7 Days Only').all();\nconst results = [];\n\nfor (const item of capacityRows) {\n  const row = item.json;\n  const sheetsCapacity = parseInt(row.slotCapacity);\n  const date = row.date;\n  const hour = parseInt(row.hour);\n\n  const blocksNeeded = Math.max(0, ghlMaxSlots - sheetsCapacity);\n\n  const startTime = `${date}T${String(hour).padStart(2, '0')}:00:00${timezoneOffset}`;\n  const endTime = `${date}T${String((hour + 1) % 24).padStart(2, '0')}:00:00${timezoneOffset}`;\n\n  const result = {\n    date: date,\n    hour: hour,\n    sheetsCapacity: sheetsCapacity,\n    ghlMaxSlots: ghlMaxSlots,\n    blocksNeeded: blocksNeeded,\n    startTime: startTime,\n    endTime: endTime,\n    serviceCode: row.serviceCode,\n    durationMinutes: parseInt(row.durationMinutes),\n    status: blocksNeeded > 0 ? 'needs_blocking' :\n            sheetsCapacity > ghlMaxSlots ? 'capacity_warning' :\n            'no_action_needed'\n  };\n\n  if (blocksNeeded > 0) {\n    console.log(`🔒 ${date} ${hour}:00 - Block ${blocksNeeded} slots (capacity=${sheetsCapacity})`);\n  } else if (sheetsCapacity > ghlMaxSlots) {\n    console.warn(`⚠️ ${date} ${hour}:00 - Capacity (${sheetsCapacity}) > GHL max (${ghlMaxSlots})`);\n  }\n\n  results.push({ json: result });\n}\n\nconsole.log(`📊 Total hours processed: ${results.length}`);\nconsole.log(`📊 Hours needing blocks: ${results.filter(r => r.json.blocksNeeded > 0).length}`);\n\nreturn results;"
+      },
+      "id": "calculate-blocks",
+      "name": "Calculate Blocks Needed",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1850, 300],
+      "notes": "Calculate how many blocks needed per hour"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{$json.blocksNeeded}}",
+              "operation": "larger",
+              "value2": 0
+            }
+          ]
+        }
+      },
+      "id": "filter-needs-blocks",
+      "name": "Filter - Needs Blocking",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [2050, 300],
+      "notes": "Only process hours that need blocks"
+    },
+    {
+      "parameters": {
+        "jsCode": "const config = $('Set Config Variables').item.json;\nconst items = $input.all();\nconst blockSlots = [];\n\nfor (const item of items) {\n  const data = item.json;\n\n  for (let i = 0; i < data.blocksNeeded; i++) {\n    blockSlots.push({\n      json: {\n        calendarId: config.ghlCalendarId,\n        locationId: config.ghlLocationId,\n        startTime: data.startTime,\n        endTime: data.endTime,\n        title: `🔒 Capacity Limiter ${i + 1}/${data.blocksNeeded}`,\n        notes: `Auto-block: Sheets capacity=${data.sheetsCapacity}, GHL max=${config.ghlMaxSlots}. Service: ${data.serviceCode}`,\n        metadata: {\n          date: data.date,\n          hour: data.hour,\n          sheetsCapacity: data.sheetsCapacity,\n          blockIndex: i + 1,\n          totalBlocks: data.blocksNeeded\n        }\n      }\n    });\n  }\n}\n\nconsole.log(`🔒 Created ${blockSlots.length} block slot items to insert`);\n\nreturn blockSlots;"
+      },
+      "id": "expand-blocks",
+      "name": "Expand to Individual Blocks",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2250, 300],
+      "notes": "Create N block items for each hour"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://services.gohighlevel.com/calendars/{{$json.calendarId}}/block-slots",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"locationId\": \"{{$json.locationId}}\",\n  \"calendarId\": \"{{$json.calendarId}}\",\n  \"startTime\": \"{{$json.startTime}}\",\n  \"endTime\": \"{{$json.endTime}}\",\n  \"title\": \"{{$json.title}}\",\n  \"notes\": \"{{$json.notes}}\"\n}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          },
+          "batching": {
+            "batch": {
+              "batchSize": 5,
+              "batchInterval": 1000
+            }
+          }
+        }
+      },
+      "id": "create-blocks",
+      "name": "Create Block Slots",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [2450, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "YOUR_GHL_API_CREDENTIAL_ID",
+          "name": "GHL API Key"
+        }
+      },
+      "notes": "Create block slots in GHL (batched)"
+    },
+    {
+      "parameters": {
+        "jsCode": "const createdBlocks = $input.all();\n\nconst successCount = createdBlocks.filter(item =>\n  item.json.event && item.json.event.id\n).length;\n\nconst failedCount = createdBlocks.length - successCount;\n\nconst byDate = {};\nfor (const item of createdBlocks) {\n  if (item.json.event) {\n    const date = item.json.event.startTime.split('T')[0];\n    byDate[date] = (byDate[date] || 0) + 1;\n  }\n}\n\nconst summary = {\n  timestamp: new Date().toISOString(),\n  totalBlocksCreated: successCount,\n  totalBlocksFailed: failedCount,\n  blocksByDate: byDate,\n  success: failedCount === 0\n};\n\nconsole.log(`✅ Summary: ${successCount} created, ${failedCount} failed`);\nconsole.log(`📊 Blocks by date:`, byDate);\n\nreturn [{ json: summary }];"
+      },
+      "id": "aggregate-results",
+      "name": "Aggregate Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2650, 300],
+      "notes": "Summarize what was created"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{$('Set Config Variables').item.json.googleSheetId}}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "={{$('Set Config Variables').item.json.logsSheetName}}"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "timestamp": "={{$json.timestamp}}",
+            "totalBlocksCreated": "={{$json.totalBlocksCreated}}",
+            "totalBlocksFailed": "={{$json.totalBlocksFailed}}",
+            "success": "={{$json.success}}",
+            "blocksByDate": "={{JSON.stringify($json.blocksByDate)}}",
+            "notes": "Daily capacity sync completed"
+          }
+        },
+        "options": {}
+      },
+      "id": "log-to-sheets",
+      "name": "Log Results to Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [2850, 300],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_GOOGLE_SHEETS_CREDENTIAL_ID",
+          "name": "Google Sheets Account"
+        }
+      },
+      "notes": "Log summary to CapacitySyncLogs sheet"
+    }
+  ],
+  "connections": {
+    "Schedule Trigger - Midnight": {
+      "main": [
+        [
+          {
+            "node": "Set Config Variables",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Config Variables": {
+      "main": [
+        [
+          {
+            "node": "Read Google Sheets - Capacity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Google Sheets - Capacity": {
+      "main": [
+        [
+          {
+            "node": "Filter - Next 7 Days Only",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter - Next 7 Days Only": {
+      "main": [
+        [
+          {
+            "node": "Prepare Date Range for Cleanup",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Date Range for Cleanup": {
+      "main": [
+        [
+          {
+            "node": "Get Existing Block Slots",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Existing Block Slots": {
+      "main": [
+        [
+          {
+            "node": "Filter Auto-Created Blocks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Auto-Created Blocks": {
+      "main": [
+        [
+          {
+            "node": "Delete Old Blocks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete Old Blocks": {
+      "main": [
+        [
+          {
+            "node": "Calculate Blocks Needed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Blocks Needed": {
+      "main": [
+        [
+          {
+            "node": "Filter - Needs Blocking",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter - Needs Blocking": {
+      "main": [
+        [
+          {
+            "node": "Expand to Individual Blocks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Expand to Individual Blocks": {
+      "main": [
+        [
+          {
+            "node": "Create Block Slots",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Block Slots": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Results": {
+      "main": [
+        [
+          {
+            "node": "Log Results to Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "1",
+  "id": "daily-capacity-sync",
+  "meta": {
+    "instanceId": "your-n8n-instance"
+  },
+  "tags": [
+    {
+      "name": "GHL",
+      "id": "1"
+    },
+    {
+      "name": "Capacity Management",
+      "id": "2"
+    },
+    {
+      "name": "Automation",
+      "id": "3"
+    }
+  ]
+}

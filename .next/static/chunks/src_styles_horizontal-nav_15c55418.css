@@ -1,0 +1,254 @@
+/* [project]/src/styles/horizontal-nav.css [app-client] (css) */
+.glass-nav-pill {
+  -webkit-backdrop-filter: blur(20px);
+  will-change: transform, backdrop-filter;
+  background: rgba(0, 0, 0, .75);
+  border: 1px solid rgba(255, 255, 255, .06);
+  border-radius: 50px;
+  justify-content: center;
+  align-items: center;
+  gap: 0;
+  padding: 8px 16px;
+  transition: all .3s cubic-bezier(.25, .46, .45, .94);
+  display: flex;
+  transform: translateZ(0);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, .4), 0 4px 16px rgba(0, 0, 0, .3), inset 0 1px rgba(255, 255, 255, .08);
+}
+
+.glass-nav-pill:hover {
+  background: rgba(0, 0, 0, .85);
+  border: 1px solid rgba(255, 255, 255, .08);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, .5), 0 6px 20px rgba(0, 0, 0, .4), inset 0 1px rgba(255, 255, 255, .1);
+}
+
+.nav-circle {
+  cursor: pointer;
+  will-change: transform, background;
+  background: rgba(45, 45, 45, .9);
+  border: none;
+  border-radius: 50%;
+  outline: none;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  width: 44px;
+  height: 44px;
+  margin: 0;
+  transition: all .25s cubic-bezier(.25, .46, .45, .94);
+  display: flex;
+  position: relative;
+  transform: translateZ(0);
+}
+
+.nav-button-container {
+  cursor: pointer;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  margin: 0 4px;
+  transition: all .25s cubic-bezier(.25, .46, .45, .94);
+  display: flex;
+}
+
+.nav-circle:before {
+  content: "";
+  opacity: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, .08) 0%, rgba(255, 255, 255, .02) 100%);
+  border-radius: 50%;
+  transition: opacity .25s;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+}
+
+.nav-circle:hover {
+  background: rgba(80, 80, 80, .9);
+  transform: translateY(-1px)scale(1.02);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, .3), inset 0 1px rgba(255, 255, 255, .1);
+}
+
+.nav-circle:hover:before {
+  opacity: 1;
+}
+
+.nav-circle:active {
+  background: rgba(70, 70, 70, .9);
+  transform: translateY(0)scale(.98);
+}
+
+.nav-active {
+  background: #646464 !important;
+  border: 1px solid rgba(255, 255, 255, .1) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .4), inset 0 2px 4px rgba(0, 0, 0, .2), inset 0 -1px rgba(255, 255, 255, .1) !important;
+}
+
+.nav-active:before {
+  opacity: 1 !important;
+  background: linear-gradient(135deg, rgba(255, 255, 255, .12) 0%, rgba(255, 255, 255, .06) 100%) !important;
+}
+
+.nav-icon {
+  color: rgba(255, 255, 255, .9);
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .4));
+  width: 20px;
+  height: 20px;
+  transition: all .25s;
+}
+
+.nav-circle:hover .nav-icon {
+  color: #fff;
+  transform: scale(1.05);
+}
+
+.nav-active .nav-icon {
+  transform: scale(1.08);
+  color: #fff !important;
+}
+
+.nav-has-filters {
+  background: rgba(59, 130, 246, .8) !important;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, .4), inset 0 1px rgba(255, 255, 255, .1) !important;
+}
+
+.nav-has-filters .nav-icon {
+  color: #fff !important;
+}
+
+.nav-label {
+  color: rgba(255, 255, 255, .9);
+  text-align: center;
+  letter-spacing: .3px;
+  margin-top: 1px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  transition: all .25s;
+}
+
+.nav-circle:hover .nav-label {
+  color: #fff;
+}
+
+.nav-active .nav-label {
+  color: #fff !important;
+}
+
+.nav-has-filters .nav-label {
+  color: rgba(255, 255, 255, .9) !important;
+}
+
+@supports ((-webkit-backdrop-filter: blur(20px)) or (backdrop-filter: blur(20px))) {
+  .glass-nav-pill {
+    -webkit-backdrop-filter: blur(20px) saturate(1.2);
+    background: rgba(0, 0, 0, .65);
+  }
+
+  .glass-nav-pill:hover {
+    -webkit-backdrop-filter: blur(25px) saturate(1.3);
+    background: rgba(0, 0, 0, .75);
+  }
+}
+
+@media (max-width: 480px) {
+  .glass-nav-pill {
+    gap: 0;
+    padding: 10px 20px;
+  }
+
+  .nav-circle {
+    width: 48px;
+    height: 48px;
+    margin: 0 3px;
+  }
+
+  .nav-icon {
+    width: 18px;
+    height: 18px;
+  }
+
+  .nav-label {
+    margin-top: 1px;
+    font-size: 10px;
+    font-weight: 600;
+  }
+}
+
+.dark-glass-popup {
+  -webkit-backdrop-filter: blur(20px);
+  will-change: transform, backdrop-filter;
+  background: rgba(0, 0, 0, .95);
+  border: 1px solid rgba(255, 255, 255, .1);
+  border-top: 2px solid rgba(255, 255, 255, .15);
+  transition: all .3s cubic-bezier(.25, .46, .45, .94);
+  transform: translateZ(0);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, .6), 0 8px 32px rgba(0, 0, 0, .4), inset 0 1px rgba(255, 255, 255, .08);
+}
+
+@supports ((-webkit-backdrop-filter: blur(20px)) or (backdrop-filter: blur(20px))) {
+  .dark-glass-popup {
+    -webkit-backdrop-filter: blur(20px) saturate(1.2);
+    background: rgba(0, 0, 0, .85);
+  }
+}
+
+.filter-bottom-sheet {
+  -webkit-backdrop-filter: blur(40px) saturate(1.8);
+  will-change: transform, backdrop-filter;
+  background: rgba(0, 0, 0, .7);
+  border: 1px solid rgba(255, 255, 255, .2);
+  border-bottom: none;
+  min-height: 65vh;
+  max-height: 65vh;
+  transform: translateZ(0);
+  box-shadow: 0 -20px 60px rgba(0, 0, 0, .3), 0 -8px 32px rgba(0, 0, 0, .2), inset 0 1px rgba(255, 255, 255, .15), inset 0 -1px rgba(255, 255, 255, .05);
+}
+
+.filter-section {
+  -webkit-backdrop-filter: blur(15px);
+  background: rgba(255, 255, 255, .08);
+  border: 1px solid rgba(255, 255, 255, .15);
+  border-radius: 10px;
+  margin-bottom: 0;
+  padding: 10px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, .1), inset 0 1px rgba(255, 255, 255, .1);
+}
+
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, .2) transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 4px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: none;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, .2);
+  border-radius: 2px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, .3);
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+.glass-nav-pill, .nav-circle, .dark-glass-popup, .filter-bottom-sheet, .filter-section {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/*# sourceMappingURL=src_styles_horizontal-nav_15c55418.css.map*/

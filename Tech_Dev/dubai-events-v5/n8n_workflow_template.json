@@ -1,0 +1,476 @@
+{
+  "name": "GHL Dynamic Capacity Booking - Phase 1",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "booking",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook - Booking Request",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "booking-webhook",
+      "notes": "Receives booking requests with: contactId, date, hour/preferredStartISO, serviceCode"
+    },
+    {
+      "parameters": {
+        "functionCode": "// Validate required fields\nconst item = $input.item.json;\nconst errors = [];\n\n// Required fields\nif (!item.date) errors.push(\"date is required (YYYY-MM-DD format)\");\nif (!item.serviceCode) errors.push(\"serviceCode is required\");\nif (!item.contactId && (!item.firstName || !item.lastName || !item.email)) {\n  errors.push(\"Either contactId OR (firstName, lastName, email) required\");\n}\n\n// Date format validation\nif (item.date && !/^\\d{4}-\\d{2}-\\d{2}$/.test(item.date)) {\n  errors.push(\"date must be in YYYY-MM-DD format\");\n}\n\n// Hour validation (if provided)\nif (item.hour !== undefined && (item.hour < 0 || item.hour > 23)) {\n  errors.push(\"hour must be between 0 and 23\");\n}\n\n// Duration validation (if provided)\nif (item.durationMinutes && (item.durationMinutes < 15 || item.durationMinutes > 240)) {\n  errors.push(\"durationMinutes must be between 15 and 240\");\n}\n\nif (errors.length > 0) {\n  return {\n    json: {\n      status: \"error\",\n      errors: errors,\n      message: \"Validation failed\"\n    }\n  };\n}\n\n// Extract hour from preferredStartISO if provided\nlet hour = item.hour;\nif (item.preferredStartISO && !hour) {\n  const dt = new Date(item.preferredStartISO);\n  hour = dt.getHours();\n}\n\nreturn {\n  json: {\n    ...item,\n    hour: hour,\n    status: \"validated\"\n  }\n};"
+      },
+      "id": "validate-input",
+      "name": "Validate Input",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [450, 300],
+      "notes": "Validates all required fields and formats"
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "sheetName": "Capacity",
+        "range": "A:G",
+        "options": {
+          "headerRow": 1
+        }
+      },
+      "id": "read-capacity",
+      "name": "Read Capacity Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 3,
+      "position": [650, 300],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_GOOGLE_SHEETS_CREDENTIAL_ID",
+          "name": "Google Sheets Account"
+        }
+      },
+      "notes": "Reads all capacity configuration from Google Sheets"
+    },
+    {
+      "parameters": {
+        "functionCode": "const items = $input.all();\nconst requestDate = $('Webhook - Booking Request').item.json.date;\nconst requestServiceCode = $('Webhook - Booking Request').item.json.serviceCode;\nconst requestHour = $('Validate Input').item.json.hour;\n\n// Filter capacity records for matching date and service\nconst matchingCapacity = items.filter(item => {\n  const capacityData = item.json;\n  return capacityData.date === requestDate &&\n         capacityData.serviceCode === requestServiceCode &&\n         (requestHour === undefined || parseInt(capacityData.hour) === requestHour);\n});\n\nif (matchingCapacity.length === 0) {\n  return [{\n    json: {\n      status: \"error\",\n      message: `No capacity configured for date ${requestDate}, service ${requestServiceCode}`,\n      alternatives: []\n    }\n  }];\n}\n\n// If no specific hour requested, use first available hour\nlet targetCapacity = matchingCapacity[0].json;\nif (requestHour !== undefined) {\n  targetCapacity = matchingCapacity.find(c => parseInt(c.json.hour) === requestHour)?.json || targetCapacity;\n}\n\nreturn [{\n  json: {\n    status: \"capacity_found\",\n    targetDate: requestDate,\n    targetHour: parseInt(targetCapacity.hour),\n    slotCapacity: parseInt(targetCapacity.slotCapacity),\n    durationMinutes: parseInt(targetCapacity.durationMinutes),\n    bufferMinutes: parseInt(targetCapacity.bufferMinutes) || 0,\n    serviceCode: targetCapacity.serviceCode,\n    allMatchingHours: matchingCapacity.map(c => ({\n      hour: parseInt(c.json.hour),\n      capacity: parseInt(c.json.slotCapacity)\n    }))\n  }\n}];"
+      },
+      "id": "find-capacity",
+      "name": "Find Matching Capacity",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [850, 300],
+      "notes": "Filters capacity for matching date, hour, and service code"
+    },
+    {
+      "parameters": {
+        "functionCode": "const webhookData = $('Webhook - Booking Request').item.json;\nconst capacityData = $input.item.json;\n\n// Your timezone offset (adjust as needed)\nconst timezoneOffset = '-05:00'; // EST example\n\n// Determine start time\nlet startISO;\nif (webhookData.preferredStartISO) {\n  startISO = webhookData.preferredStartISO;\n} else {\n  // Construct ISO from date + hour\n  const date = webhookData.date;\n  const hour = capacityData.targetHour;\n  startISO = `${date}T${String(hour).padStart(2, '0')}:00:00${timezoneOffset}`;\n}\n\n// Calculate end time\nconst startDate = new Date(startISO);\nconst durationMs = capacityData.durationMinutes * 60 * 1000;\nconst endDate = new Date(startDate.getTime() + durationMs);\nconst endISO = endDate.toISOString();\n\n// Calculate buffer end (for checking conflicts)\nconst bufferMs = capacityData.bufferMinutes * 60 * 1000;\nconst bufferEndDate = new Date(endDate.getTime() + bufferMs);\nconst bufferEndISO = bufferEndDate.toISOString();\n\nreturn {\n  json: {\n    ...capacityData,\n    startISO: startISO,\n    endISO: endISO,\n    bufferEndISO: bufferEndISO,\n    startDate: startDate.toISOString(),\n    endDate: endDate.toISOString()\n  }\n};"
+      },
+      "id": "calculate-times",
+      "name": "Calculate Start & End Times",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1050, 300],
+      "notes": "Calculates appointment start, end, and buffer times in ISO format"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://rest.gohighlevel.com/v1/appointments/",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "calendarId",
+              "value": "=YOUR_CALENDAR_ID"
+            },
+            {
+              "name": "locationId",
+              "value": "=YOUR_LOCATION_ID"
+            },
+            {
+              "name": "startDate",
+              "value": "={{$('Calculate Start & End Times').item.json.startISO}}"
+            },
+            {
+              "name": "endDate",
+              "value": "={{$('Calculate Start & End Times').item.json.bufferEndISO}}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "get-appointments",
+      "name": "Get GHL Appointments",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1250, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "YOUR_GHL_API_CREDENTIAL_ID",
+          "name": "GHL API Key"
+        }
+      },
+      "notes": "Fetches existing appointments from GHL for the target time window"
+    },
+    {
+      "parameters": {
+        "functionCode": "const existingAppointments = $input.item.json.appointments || [];\nconst targetStart = new Date($('Calculate Start & End Times').item.json.startISO);\nconst targetEnd = new Date($('Calculate Start & End Times').item.json.endISO);\nconst targetBufferEnd = new Date($('Calculate Start & End Times').item.json.bufferEndISO);\n\n// Count overlaps (including buffer time)\nconst overlappingCount = existingAppointments.filter(apt => {\n  const aptStart = new Date(apt.startTime);\n  const aptEnd = new Date(apt.endTime);\n\n  // Check if appointments overlap (including buffer)\n  return (aptStart < targetBufferEnd && aptEnd > targetStart);\n}).length;\n\nconst slotCapacity = $('Calculate Start & End Times').item.json.slotCapacity;\nconst availableSlots = Math.max(0, slotCapacity - overlappingCount);\n\nreturn {\n  json: {\n    currentBookings: overlappingCount,\n    slotCapacity: slotCapacity,\n    availableSlots: availableSlots,\n    canBook: availableSlots > 0,\n    existingAppointments: existingAppointments.length,\n    timeData: $('Calculate Start & End Times').item.json\n  }\n};"
+      },
+      "id": "count-bookings",
+      "name": "Count Overlapping Bookings",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1450, 300],
+      "notes": "Counts how many appointments overlap with requested time (including buffer)"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.canBook}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "check-availability",
+      "name": "IF: Has Available Slot?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1650, 300],
+      "notes": "Branches based on whether capacity is available"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://rest.gohighlevel.com/v1/appointments/",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "calendarId",
+              "value": "=YOUR_CALENDAR_ID"
+            },
+            {
+              "name": "locationId",
+              "value": "=YOUR_LOCATION_ID"
+            },
+            {
+              "name": "contactId",
+              "value": "={{$('Webhook - Booking Request').item.json.contactId}}"
+            },
+            {
+              "name": "startTime",
+              "value": "={{$('Count Overlapping Bookings').item.json.timeData.startISO}}"
+            },
+            {
+              "name": "endTime",
+              "value": "={{$('Count Overlapping Bookings').item.json.timeData.endISO}}"
+            },
+            {
+              "name": "title",
+              "value": "={{$('Webhook - Booking Request').item.json.serviceCode}} Appointment"
+            },
+            {
+              "name": "appointmentStatus",
+              "value": "confirmed"
+            },
+            {
+              "name": "notes",
+              "value": "Booked via n8n dynamic capacity system"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "create-appointment",
+      "name": "Create GHL Appointment",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1850, 200],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "YOUR_GHL_API_CREDENTIAL_ID",
+          "name": "GHL API Key"
+        }
+      },
+      "notes": "Creates the appointment in GHL (TRUE branch)"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "sheetName": "Bookings",
+        "range": "A:K",
+        "options": {
+          "valueInputMode": "USER_ENTERED"
+        },
+        "columns": {
+          "mappings": [
+            {
+              "fromColumn": "timestamp",
+              "toColumn": "={{$now.toISO()}}"
+            },
+            {
+              "fromColumn": "date",
+              "toColumn": "={{$('Webhook - Booking Request').item.json.date}}"
+            },
+            {
+              "fromColumn": "startISO",
+              "toColumn": "={{$('Count Overlapping Bookings').item.json.timeData.startISO}}"
+            },
+            {
+              "fromColumn": "endISO",
+              "toColumn": "={{$('Count Overlapping Bookings').item.json.timeData.endISO}}"
+            },
+            {
+              "fromColumn": "hour",
+              "toColumn": "={{$('Count Overlapping Bookings').item.json.timeData.targetHour}}"
+            },
+            {
+              "fromColumn": "serviceCode",
+              "toColumn": "={{$('Webhook - Booking Request').item.json.serviceCode}}"
+            },
+            {
+              "fromColumn": "contactId",
+              "toColumn": "={{$('Webhook - Booking Request').item.json.contactId}}"
+            },
+            {
+              "fromColumn": "appointmentId",
+              "toColumn": "={{$('Create GHL Appointment').item.json.appointment.id}}"
+            },
+            {
+              "fromColumn": "status",
+              "toColumn": "confirmed"
+            },
+            {
+              "fromColumn": "source",
+              "toColumn": "n8n_api"
+            },
+            {
+              "fromColumn": "notes",
+              "toColumn": "Success"
+            }
+          ]
+        }
+      },
+      "id": "log-booking",
+      "name": "Log to Bookings Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 3,
+      "position": [2050, 200],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_GOOGLE_SHEETS_CREDENTIAL_ID",
+          "name": "Google Sheets Account"
+        }
+      },
+      "notes": "Logs successful booking to Google Sheets"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"status\": \"success\",\n  \"message\": \"Appointment booked successfully\",\n  \"appointment\": {\n    \"id\": \"{{$('Create GHL Appointment').item.json.appointment.id}}\",\n    \"startTime\": \"{{$('Count Overlapping Bookings').item.json.timeData.startISO}}\",\n    \"endTime\": \"{{$('Count Overlapping Bookings').item.json.timeData.endISO}}\",\n    \"duration\": {{$('Count Overlapping Bookings').item.json.timeData.durationMinutes}},\n    \"serviceCode\": \"{{$('Webhook - Booking Request').item.json.serviceCode}}\"\n  }\n}",
+        "options": {}
+      },
+      "id": "success-response",
+      "name": "Success Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [2250, 200],
+      "notes": "Returns success response to webhook caller"
+    },
+    {
+      "parameters": {
+        "functionCode": "const allMatchingHours = $('Find Matching Capacity').item.json.allMatchingHours || [];\nconst requestedDate = $('Webhook - Booking Request').item.json.date;\nconst serviceCode = $('Webhook - Booking Request').item.json.serviceCode;\nconst timezoneOffset = '-05:00'; // Adjust as needed\n\n// Generate alternative time slots\nconst alternatives = allMatchingHours\n  .filter(h => h.capacity > 0)\n  .slice(0, 3) // Top 3 alternatives\n  .map(h => {\n    const startISO = `${requestedDate}T${String(h.hour).padStart(2, '0')}:00:00${timezoneOffset}`;\n    return {\n      hour: h.hour,\n      startISO: startISO,\n      capacity: h.capacity,\n      displayTime: `${h.hour}:00`\n    };\n  });\n\nreturn {\n  json: {\n    status: \"no_availability\",\n    message: \"Requested time slot is fully booked\",\n    requestedTime: $('Count Overlapping Bookings').item.json.timeData.startISO,\n    currentBookings: $('Count Overlapping Bookings').item.json.currentBookings,\n    slotCapacity: $('Count Overlapping Bookings').item.json.slotCapacity,\n    alternatives: alternatives\n  }\n};"
+      },
+      "id": "find-alternatives",
+      "name": "Find Alternative Slots",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1850, 400],
+      "notes": "Generates alternative time slot suggestions (FALSE branch)"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{$json}}",
+        "options": {}
+      },
+      "id": "no-availability-response",
+      "name": "No Availability Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [2050, 400],
+      "notes": "Returns no availability response with alternatives"
+    }
+  ],
+  "connections": {
+    "Webhook - Booking Request": {
+      "main": [
+        [
+          {
+            "node": "Validate Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Input": {
+      "main": [
+        [
+          {
+            "node": "Read Capacity Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Capacity Sheet": {
+      "main": [
+        [
+          {
+            "node": "Find Matching Capacity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Matching Capacity": {
+      "main": [
+        [
+          {
+            "node": "Calculate Start & End Times",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Start & End Times": {
+      "main": [
+        [
+          {
+            "node": "Get GHL Appointments",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get GHL Appointments": {
+      "main": [
+        [
+          {
+            "node": "Count Overlapping Bookings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Count Overlapping Bookings": {
+      "main": [
+        [
+          {
+            "node": "IF: Has Available Slot?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF: Has Available Slot?": {
+      "main": [
+        [
+          {
+            "node": "Create GHL Appointment",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Find Alternative Slots",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create GHL Appointment": {
+      "main": [
+        [
+          {
+            "node": "Log to Bookings Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log to Bookings Sheet": {
+      "main": [
+        [
+          {
+            "node": "Success Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Alternative Slots": {
+      "main": [
+        [
+          {
+            "node": "No Availability Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "1",
+  "id": "ghl-capacity-booking-phase1",
+  "meta": {
+    "instanceId": "your-n8n-instance"
+  },
+  "tags": [
+    {
+      "name": "GHL",
+      "id": "1"
+    },
+    {
+      "name": "Booking",
+      "id": "2"
+    },
+    {
+      "name": "Capacity Management",
+      "id": "3"
+    }
+  ]
+}
