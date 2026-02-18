@@ -136,7 +136,7 @@ export default function ListView() {
 
   return (
     <ThemeProvider>
-      <main className="min-h-screen w-full" style={{ backgroundColor: '#E8E6E1' }}>
+      <main className="min-h-screen w-full" style={{ backgroundColor: '#1a1917' }}>
         {/* Top Navigation with integrated date picker and category pills */}
         <TopNav
           navButtons={viewToggleButtons}
@@ -158,8 +158,11 @@ export default function ListView() {
           }
         />
 
-        {/* Stacked Event Cards - with reduced top padding since pills are now in TopNav */}
-        <div className="pt-[180px] md:pt-[200px] relative z-10 min-h-screen" style={{ backgroundColor: '#1a1917' }}>
+        {/* Stacked Event Cards - fixed scroll area below navbar */}
+        <div
+          className="fixed top-[180px] md:top-[200px] left-1.5 md:left-2 right-1.5 md:right-2 bottom-0 z-10 overflow-y-auto rounded-2xl"
+          style={{ backgroundColor: '#1a1917' }}
+        >
           <StackedEventCards
             cards={cards}
             getCategoryColor={getCategoryColorForStackedCards}

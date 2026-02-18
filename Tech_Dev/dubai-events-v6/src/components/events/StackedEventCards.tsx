@@ -391,6 +391,17 @@ const EventCard: React.FC<EventCardProps> = ({
             <span style={{ color: 'rgba(200, 200, 220, 0.7)', fontSize: '12px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{venue.venue_location}</span>
           </div>
 
+          {/* Timings */}
+          {(event.event_time_start || event.event_time_end) && (
+            <div className="stacked-card-time-row" style={{ marginTop: '5px' }}>
+              <ClockIcon />
+              <span>
+                {formatTime(event.event_time_start)}
+                {event.event_time_end && ` - ${formatTime(event.event_time_end)}`}
+              </span>
+            </div>
+          )}
+
           {/* Category Tags (Subtitle) */}
           {(() => {
             const smartSubtitle = generateSmartSubtitle(
@@ -670,6 +681,12 @@ const StackedEventCards: React.FC<StackedEventCardsProps> = ({
   const contentRef = useRef<HTMLDivElement>(null);
   const [contentHeight, setContentHeight] = useState(0);
 
+  // Collapse all cards when the cards list changes (e.g. date switch)
+  useEffect(() => {
+    setExpandedId(null);
+    setContentHeight(0);
+  }, [cards]);
+
   // Primary measurement: Fires synchronously after DOM mutation
   useLayoutEffect(() => {
     if (expandedId && contentRef.current) {
@@ -704,12 +721,11 @@ const StackedEventCards: React.FC<StackedEventCardsProps> = ({
     // Expand card - height measurement handled by useLayoutEffect
     setExpandedId(id);
 
-    // Scroll to card after expansion animation starts
-    // Delay matches CSS transition duration
+    // Scroll expanded card to top so it expands downward into view
     setTimeout(() => {
       document.getElementById(`card-${id}`)?.scrollIntoView({
         behavior: 'smooth',
-        block: 'nearest'
+        block: 'start'
       });
     }, 150);
   };
