@@ -220,7 +220,7 @@ export default function Home() {
 
   return (
     <ThemeProvider>
-      <main className="h-screen w-full flex flex-col bg-background">
+      <main className="h-screen w-full flex flex-col bg-background overflow-hidden">
         <h1 className="sr-only">Dubai Event Discovery - Find the Hottest Venues and Events</h1>
 
         {/* === DESKTOP LAYOUT (>= lg) === */}

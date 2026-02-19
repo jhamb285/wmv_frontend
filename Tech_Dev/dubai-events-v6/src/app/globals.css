@@ -99,9 +99,10 @@
     /* Enable smooth scrolling and prevent scroll issues */
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
-    /* Full viewport height on mobile */
-    min-height: 100vh;
-    min-height: -webkit-fill-available;
+    /* Full viewport height on mobile — use dvh to avoid URL bar overflow */
+    height: 100dvh;
+    height: -webkit-fill-available;
+    overflow: hidden;
     /* Professional font rendering */
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
@@ -111,6 +112,7 @@
   html {
     /* Support for iOS Safari viewport */
     height: -webkit-fill-available;
+    overflow: hidden;
   }
   
   /* Custom retro map theme utilities */
