@@ -80,6 +80,8 @@ interface MobileEventCardProps {
   dateOptions?: DateOption[];
   selectedDates?: string[];
   onDateChange?: (dates: string[]) => void;
+  isPresetRange?: boolean;
+  presetRangeDates?: string[];
 }
 
 const PLACEHOLDER_IMAGES = [
@@ -127,6 +129,8 @@ const MobileEventCard: React.FC<MobileEventCardProps> = ({
   dateOptions = [],
   selectedDates = [],
   onDateChange,
+  isPresetRange = false,
+  presetRangeDates = [],
 }) => {
   const { event, venue } = card;
   const expandedRef = useRef<HTMLDivElement>(null);
@@ -303,7 +307,7 @@ const MobileEventCard: React.FC<MobileEventCardProps> = ({
         className="fixed z-[60] flex flex-col rounded-2xl overflow-hidden"
         style={{
           background: 'rgba(255, 255, 255, 0.99)',
-          top: '190px',
+          top: '200px',
           left: '6px',
           right: '6px',
           bottom: '12px',
@@ -425,27 +429,33 @@ const MobileEventCard: React.FC<MobileEventCardProps> = ({
             >
               {dateOptions.length > 0 ? (
                 dateOptions.map((opt) => {
-                  const isSelected = selectedDates.includes(opt.dateKey);
+                  const isClicked = selectedDates.includes(opt.dateKey);
+                  const isInRange = presetRangeDates.includes(opt.dateKey);
+                  const isFullSelected = isClicked && (!isInRange || selectedDates.length < presetRangeDates.length);
                   return (
                     <button
                       key={opt.dateKey}
                       onClick={(e) => {
                         e.stopPropagation();
-                        if (!isSelected && onDateChange) {
+                        if (onDateChange) {
                           onDateChange([opt.dateKey]);
                         }
                       }}
                       className="flex flex-col items-center px-3 py-1.5 rounded-xl whitespace-nowrap flex-shrink-0 transition-all duration-200"
                       style={{
-                        background: isSelected ? 'rgba(0, 0, 0, 0.45)' : 'rgba(0, 0, 0, 0.04)',
-                        border: `1px solid ${isSelected ? 'rgba(0, 0, 0, 0.1)' : 'rgba(0, 0, 0, 0.06)'}`,
-                        boxShadow: isSelected ? '0 2px 8px rgba(0,0,0,0.1)' : 'none',
+                        background: isFullSelected
+                          ? 'rgba(0, 0, 0, 0.45)'
+                          : 'rgba(0, 0, 0, 0.04)',
+                        border: !isFullSelected && isInRange
+                          ? '2px solid rgba(59, 130, 246, 0.6)'
+                          : `1px solid ${isFullSelected ? 'rgba(0, 0, 0, 0.1)' : 'rgba(0, 0, 0, 0.06)'}`,
+                        boxShadow: isFullSelected ? '0 2px 8px rgba(0,0,0,0.1)' : 'none',
                       }}
                     >
-                      <span className={`text-[9px] font-bold uppercase tracking-wider ${isSelected ? 'text-white' : 'text-gray-400'}`}>
+                      <span className={`text-[9px] font-bold uppercase tracking-wider ${isFullSelected ? 'text-white' : 'text-gray-400'}`}>
                         {opt.day}
                       </span>
-                      <span className={`text-[12px] font-semibold ${isSelected ? 'text-white' : 'text-gray-600'}`}>
+                      <span className={`text-[12px] font-semibold ${isFullSelected ? 'text-white' : 'text-gray-600'}`}>
                         {opt.date}
                       </span>
                     </button>
@@ -825,26 +835,32 @@ const MobileEventCard: React.FC<MobileEventCardProps> = ({
         >
           {dateOptions.length > 0 ? (
             dateOptions.map((opt) => {
-              const isSelected = selectedDates.includes(opt.dateKey);
+              const isClicked = selectedDates.includes(opt.dateKey);
+              const isInRange = presetRangeDates.includes(opt.dateKey);
+              const isFullSelected = isClicked && (!isInRange || selectedDates.length < presetRangeDates.length);
               return (
                 <button
                   key={opt.dateKey}
                   onClick={(e) => {
                     e.stopPropagation();
-                    if (!isSelected && onDateChange) {
+                    if (onDateChange) {
                       onDateChange([opt.dateKey]);
                     }
                   }}
                   className="flex flex-col items-center px-2.5 py-1 rounded-xl whitespace-nowrap flex-shrink-0 transition-all duration-200"
                   style={{
-                    background: isSelected ? 'rgba(0, 0, 0, 0.45)' : 'rgba(0,0,0,0.04)',
-                    border: `1px solid ${isSelected ? 'rgba(0,0,0,0.1)' : 'rgba(0,0,0,0.06)'}`,
+                    background: isFullSelected
+                      ? 'rgba(0, 0, 0, 0.45)'
+                      : 'rgba(0,0,0,0.04)',
+                    border: !isFullSelected && isInRange
+                      ? '2px solid rgba(59, 130, 246, 0.6)'
+                      : `1px solid ${isFullSelected ? 'rgba(0,0,0,0.1)' : 'rgba(0,0,0,0.06)'}`,
                   }}
                 >
-                  <span className={`text-[9px] font-bold uppercase tracking-wider ${isSelected ? 'text-white' : 'text-gray-400'}`}>
+                  <span className={`text-[9px] font-bold uppercase tracking-wider ${isFullSelected ? 'text-white' : 'text-gray-400'}`}>
                     {opt.day}
                   </span>
-                  <span className={`text-[11px] font-semibold ${isSelected ? 'text-white' : 'text-gray-600'}`}>
+                  <span className={`text-[11px] font-semibold ${isFullSelected ? 'text-white' : 'text-gray-600'}`}>
                     {opt.date}
                   </span>
                 </button>

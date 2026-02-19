@@ -617,19 +617,6 @@ const EventCard: React.FC<EventCardProps> = ({
             </div>
           )}
 
-          {/* Venue Website Button */}
-          {venue.venue_website && (
-            <button
-              className="stacked-card-website-btn"
-              onClick={(e) => {
-                e.stopPropagation();
-                window.open(venue.venue_website, '_blank');
-              }}
-            >
-              <ExternalLinkIcon />
-              <span>Visit Website</span>
-            </button>
-          )}
         </div>
       </div>
 

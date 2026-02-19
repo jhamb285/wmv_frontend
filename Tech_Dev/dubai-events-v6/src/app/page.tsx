@@ -45,7 +45,7 @@ export default function Home() {
       status: []
     },
     selectedAreas: ['All Dubai'],
-    activeDates: [new Date().toDateString()],
+    activeDates: [],
     activeOffers: [],
     searchQuery: ''
   });
@@ -92,17 +92,45 @@ export default function Home() {
     return map;
   }, [allVenues]);
 
-  // Transform venues to card format for mobile list view
+  // Transform venues to card format for mobile list view (sorted by date, deduped by venue+event name)
   const cards = useMemo(() => {
     const rawCards = transformSupabaseDataToStackedCards(filteredVenues);
-    const eventMap = new Map<string, typeof rawCards[0]>();
+    // Deduplicate by venue + event name so the same recurring event shows only once
+    // (card date pills already let users switch between available dates)
+    // Prefer the card with date closest to today so the carousel focuses correctly
+    const todayTime = new Date().setHours(0, 0, 0, 0);
+    const dedupMap = new Map<string, typeof rawCards[0]>();
     rawCards.forEach(card => {
-      if (card.event.id && !eventMap.has(card.event.id)) {
-        eventMap.set(card.event.id, card);
+      const key = `${card.venue.id}|${(card.event.event_name || '').toLowerCase().trim()}`;
+      if (!dedupMap.has(key)) {
+        dedupMap.set(key, card);
+      } else {
+        const existing = dedupMap.get(key)!;
+        const existingDist = Math.abs(new Date(existing.event.event_date).getTime() - todayTime);
+        const newDist = Math.abs(new Date(card.event.event_date).getTime() - todayTime);
+        if (newDist < existingDist) {
+          dedupMap.set(key, card);
+        }
       }
     });
-    return Array.from(eventMap.values());
-  }, [filteredVenues]);
+    let result = Array.from(dedupMap.values());
+
+    // Post-filter: ensure card dates actually fall within the active date range
+    if (filters.activeDates.length > 0) {
+      result = result.filter(card => {
+        try {
+          const cardDate = new Date(card.event.event_date).toDateString();
+          return filters.activeDates.includes(cardDate);
+        } catch { return true; }
+      });
+    }
+
+    return result.sort((a, b) => {
+      const dateA = new Date(a.event.event_date).getTime() || 0;
+      const dateB = new Date(b.event.event_date).getTime() || 0;
+      return dateA - dateB;
+    });
+  }, [filteredVenues, filters.activeDates]);
 
   // All cards (unfiltered by date) for expanded card local date switching
   const allCards = useMemo(() => {
@@ -136,10 +164,15 @@ export default function Home() {
   const [listViewFullScreenId, setListViewFullScreenId] = useState<string | null>(null);
   const [mapClickCount, setMapClickCount] = useState(0);
   const [highlightedVenueId, setHighlightedVenueId] = useState<string | null>(null);
+  const [presetRangeDates, setPresetRangeDates] = useState<string[]>([]);
 
   const handleDateChange = (dates: string[]) => {
     setFilters({ ...filters, activeDates: dates });
   };
+
+  const handlePresetRangeDatesChange = useCallback((dates: string[]) => {
+    setPresetRangeDates(dates);
+  }, []);
 
   useEffect(() => {
     const hasSeenWelcome = sessionStorage.getItem('hasSeenWelcomePopup');
@@ -212,6 +245,7 @@ export default function Home() {
             }
             onListToggle={() => setDesktopListView(prev => !prev)}
             isListView={desktopListView}
+            onPresetRangeDatesChange={handlePresetRangeDatesChange}
           />
 
           {/* Content: Split (list+map) or Full List */}
@@ -270,6 +304,7 @@ export default function Home() {
             }
             onListToggle={() => setMobileView(prev => prev === 'map' ? 'list' : 'map')}
             isListView={mobileView === 'list'}
+            onPresetRangeDatesChange={handlePresetRangeDatesChange}
           />
 
           {mobileView === 'map' ? (
@@ -297,6 +332,7 @@ export default function Home() {
                 onDateChange={handleDateChange}
                 dismissSignal={mapClickCount}
                 onActiveCardChange={setHighlightedVenueId}
+                presetRangeDates={presetRangeDates}
               />
             </>
           ) : (
@@ -312,7 +348,7 @@ export default function Home() {
                 <>
                   {cards.map((card, index) => (
                     <MobileEventCard
-                      key={card.event.id || index}
+                      key={`${card.venue.id}-${card.event.id || index}`}
                       card={card}
                       getCategoryColor={getCategoryColorForStackedCards}
                       isExpanded={selectedVenue?.venue_id?.toString() === card.venue.id}
@@ -332,6 +368,8 @@ export default function Home() {
                       dateOptions={venueDateMap.get(card.venue.id) || []}
                       selectedDates={filters.activeDates}
                       onDateChange={handleDateChange}
+                      isPresetRange={presetRangeDates.length > 0}
+                      presetRangeDates={presetRangeDates}
                     />
                   ))}
                 </>

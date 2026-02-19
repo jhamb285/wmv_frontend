@@ -45,7 +45,7 @@ export default function ListView() {
       status: []
     },
     selectedAreas: ['All Dubai'],
-    activeDates: [new Date().toDateString()], // Default to today's date
+    activeDates: [], // Default to All Dates
     activeOffers: [],
     searchQuery: ''
   });
@@ -160,7 +160,7 @@ export default function ListView() {
 
         {/* Stacked Event Cards - fixed scroll area below navbar */}
         <div
-          className="fixed top-[180px] md:top-[200px] left-1.5 md:left-2 right-1.5 md:right-2 bottom-0 z-10 overflow-y-auto rounded-2xl"
+          className="fixed top-[190px] md:top-[210px] left-1.5 md:left-2 right-1.5 md:right-2 bottom-0 z-10 overflow-y-auto rounded-2xl"
           style={{ backgroundColor: '#1a1917' }}
         >
           <StackedEventCards
