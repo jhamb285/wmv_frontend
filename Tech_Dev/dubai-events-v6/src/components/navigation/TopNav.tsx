@@ -122,13 +122,16 @@ const TopNav: React.FC<TopNavProps> = ({
   useEffect(() => {
     if (embedded || !onHeightChange || !mobileNavRef.current) return;
     const el = mobileNavRef.current;
-    const observer = new ResizeObserver(() => {
-      onHeightChange(el.offsetTop + el.offsetHeight);
-    });
-    observer.observe(el);
     // Fire initial measurement
     onHeightChange(el.offsetTop + el.offsetHeight);
-    return () => observer.disconnect();
+    // ResizeObserver guard for older Safari (< 13.1)
+    if (typeof ResizeObserver !== 'undefined') {
+      const observer = new ResizeObserver(() => {
+        onHeightChange(el.offsetTop + el.offsetHeight);
+      });
+      observer.observe(el);
+      return () => observer.disconnect();
+    }
   }, [embedded, onHeightChange]);
 
   // Close dropdown on outside click
@@ -225,7 +228,11 @@ const TopNav: React.FC<TopNavProps> = ({
       }
 
       if (targetIndex >= 0 && pillButtons[targetIndex]) {
-        pillButtons[targetIndex].scrollIntoView({ inline: 'start', block: 'nearest' });
+        // Manual scroll for Safari compatibility (scrollIntoView options not fully supported)
+        const pill = pillButtons[targetIndex] as HTMLElement;
+        if (container) {
+          container.scrollLeft = pill.offsetLeft - container.offsetLeft;
+        }
       }
     });
   }, [dateOptions, selectedPreset]);
@@ -538,9 +545,9 @@ const TopNav: React.FC<TopNavProps> = ({
 
           {/* ROW 2: Date Picker */}
           {showDatePicker && datePickerProps && (
-            <div className="flex items-center gap-2 pt-0 pb-0 -mx-1 px-1">
+            <div className="flex items-end gap-2 pt-0 pb-0 -mx-1 px-1">
               {/* Date Range Dropdown — outside scroll area so it's not clipped */}
-              <div ref={dropdownRef} className="relative flex-shrink-0 z-10">
+              <div ref={dropdownRef} className="relative flex-shrink-0 z-10 mb-0.5">
                 <button
                   onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                   className="text-[10px] font-semibold px-2.5 py-1.5 rounded-lg transition-all duration-200 whitespace-nowrap flex items-center gap-1"
@@ -582,7 +589,7 @@ const TopNav: React.FC<TopNavProps> = ({
               </div>
               {/* Scrollable date pills — wrapper clips content so pills never bleed behind dropdown */}
               <div className="flex-1 min-w-0 overflow-hidden">
-                <div ref={mobileDateScrollRef} className="flex items-center gap-2 overflow-x-auto scrollbar-hide pt-0.5 pb-0.5"
+                <div ref={mobileDateScrollRef} className="flex items-center gap-2 overflow-x-auto scrollbar-hide pt-3 pb-0.5"
                      style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                 {dateOptions.map((dateOption, index) => {
                   const isClicked = isDateSelected(dateOption.dateKey);
@@ -595,7 +602,7 @@ const TopNav: React.FC<TopNavProps> = ({
                       key={index}
                       ref={isToday ? todayPillRef : undefined}
                       onClick={() => handleDateClick(dateOption.dateKey)}
-                      className="flex flex-col items-center px-2 py-0.5 rounded-lg transition-all duration-200 whitespace-nowrap flex-shrink-0 relative"
+                      className="flex flex-col items-center px-2.5 py-0.5 rounded-lg transition-all duration-200 whitespace-nowrap flex-shrink-0 relative"
                       style={{
                         ...(isFullSelected
                           ? { background: 'rgba(0, 0, 0, 0.45)', color: '#fff' }
@@ -603,24 +610,21 @@ const TopNav: React.FC<TopNavProps> = ({
                         ...(!isFullSelected && isInRange
                           ? { border: '2px solid rgba(59, 130, 246, 0.6)' }
                           : {}),
-                        ...(!isFullSelected && !isInRange && isToday
-                          ? { border: '2px solid #EF4444' }
-                          : {}),
                       }}
                     >
                       {isToday && (
-                        <span className="absolute -top-1.5 -right-1.5 text-[6px] font-bold px-1 py-px rounded bg-red-500 text-white">
+                        <span className="absolute -top-1.5 -right-1.5 text-[6px] font-bold px-1 py-px rounded bg-purple-600 text-white">
                           TODAY
                         </span>
                       )}
-                      <span className={`text-[8px] font-semibold uppercase tracking-wider leading-tight ${
+                      <span className={`text-[9px] font-semibold uppercase tracking-wider leading-tight ${
                         isFullSelected ? 'text-white'
                           : isWeekend ? 'text-red-500'
                           : 'text-gray-400'
                       }`}>
                         {dateOption.day}
                       </span>
-                      <span className={`text-[11px] font-bold leading-tight ${
+                      <span className={`text-[13px] font-bold leading-tight ${
                         isFullSelected ? 'text-white'
                           : isWeekend ? 'text-red-500'
                           : 'text-gray-600'

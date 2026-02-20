@@ -36,6 +36,11 @@ export const viewport = {
 export const metadata: Metadata = {
   title: "NIGHTP - Dubai Event Discovery",
   description: "Discover the hottest events, venues, and nightlife in Dubai through real-time Instagram stories and venue data.",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "NIGHTP",
+  },
   keywords: ["Dubai events", "Dubai nightlife", "Dubai venues", "Dubai clubs", "Dubai restaurants", "Dubai entertainment", "Where's My Vibe"],
   authors: [{ name: "Where's My Vibe Team" }],
   creator: "Where's My Vibe",

@@ -43,6 +43,12 @@
     "tailwind-merge": "^3.3.1",
     "zustand": "^5.0.8"
   },
+  "browserslist": [
+    ">0.3%",
+    "not dead",
+    "Safari >= 14",
+    "iOS >= 14"
+  ],
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@playwright/test": "^1.55.0",

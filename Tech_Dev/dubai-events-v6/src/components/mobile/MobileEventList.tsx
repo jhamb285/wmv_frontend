@@ -148,8 +148,10 @@ const MobileEventList: React.FC<MobileEventListProps> = ({
         // Look up the card element by venue ID (reliable, order-independent)
         const targetVenueId = displayCards[startIndex]?.venue.id;
         const targetEl = targetVenueId ? cardRefs.current.get(targetVenueId) : null;
-        if (targetEl) {
-          targetEl.scrollIntoView({ inline: 'start', block: 'nearest' });
+        // Manual scroll for Safari compatibility (scrollIntoView options not fully supported)
+        const container = scrollRef.current;
+        if (container && targetEl) {
+          container.scrollLeft = targetEl.offsetLeft - container.offsetLeft;
         }
       }
     });
@@ -353,8 +355,9 @@ const MobileEventList: React.FC<MobileEventListProps> = ({
           {/* Bottom slide-up single card (marker) */}
           {!markerFullScreen && (
             <div
-              className="absolute bottom-0 left-0 right-0 z-20 pointer-events-auto px-3 pb-4"
+              className="absolute bottom-0 left-0 right-0 z-20 pointer-events-auto px-3"
               style={{
+                paddingBottom: 'calc(8px + env(safe-area-inset-bottom, 0px))',
                 transform: isVisible ? 'translateY(0)' : 'translateY(100%)',
                 transition: 'transform 0.4s cubic-bezier(0.32, 0.72, 0, 1)',
               }}
@@ -418,11 +421,11 @@ const MobileEventList: React.FC<MobileEventListProps> = ({
                 style={{
                   scrollbarWidth: 'none',
                   msOverflowStyle: 'none',
+                  WebkitScrollSnapType: 'x mandatory',
                   scrollSnapType: 'x mandatory',
-                  WebkitOverflowScrolling: 'touch',
                   gap: '12px',
-                  padding: '0 12px 12px 12px',
-                }}
+                  padding: '0 12px calc(8px + env(safe-area-inset-bottom, 0px)) 12px',
+                } as React.CSSProperties}
                 onScroll={handleCarouselScroll}
               >
                 {displayCards.map((card) => {
@@ -480,7 +483,7 @@ const MobileEventList: React.FC<MobileEventListProps> = ({
 
               {/* Dot indicators */}
               {displayCards.length > 1 && (
-                <div className="flex justify-center gap-1.5 pb-3">
+                <div className="flex justify-center gap-1.5 py-1.5">
                   {displayCards.map((_, index) => (
                     <div
                       key={index}

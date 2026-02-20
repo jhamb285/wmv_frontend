@@ -168,6 +168,17 @@ const MobileEventCard: React.FC<MobileEventCardProps> = ({
     }
   };
 
+  // Safari fallback: transitionend may not fire reliably, force reset after timeout
+  useEffect(() => {
+    if (carouselIndex >= totalReal && isTransitioning) {
+      const fallback = setTimeout(() => {
+        setIsTransitioning(false);
+        setCarouselIndex(0);
+      }, 700);
+      return () => clearTimeout(fallback);
+    }
+  }, [carouselIndex, isTransitioning, totalReal]);
+
   const resetCarouselTimer = () => {
     if (carouselTimerRef.current) clearInterval(carouselTimerRef.current);
     carouselTimerRef.current = setInterval(() => {
@@ -360,7 +371,7 @@ const MobileEventCard: React.FC<MobileEventCardProps> = ({
             {/* Carousel viewport */}
             <div
               className="overflow-hidden rounded-2xl"
-              style={{ border: '1px solid rgba(0, 0, 0, 0.08)' }}
+              style={{ border: '1px solid rgba(0, 0, 0, 0.08)', touchAction: 'pan-y pinch-zoom' }}
               onTouchStart={handleTouchStart}
               onTouchMove={handleTouchMove}
               onTouchEnd={handleTouchEnd}

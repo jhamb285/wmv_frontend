@@ -220,7 +220,7 @@ export default function Home() {
 
   return (
     <ThemeProvider>
-      <main className="h-screen w-full flex flex-col bg-background overflow-hidden">
+      <main className="h-screen w-full flex flex-col bg-background overflow-hidden" style={{ height: '100dvh' }}>
         <h1 className="sr-only">Dubai Event Discovery - Find the Hottest Venues and Events</h1>
 
         {/* === DESKTOP LAYOUT (>= lg) === */}
@@ -282,7 +282,7 @@ export default function Home() {
         </div>
 
         {/* === MOBILE LAYOUT (< lg) === */}
-        <div className="lg:hidden h-screen w-full relative overflow-hidden">
+        <div className="lg:hidden h-screen w-full relative overflow-hidden" style={{ height: '100dvh' }}>
           {/* Mobile TopNav (fixed overlay, no profile) */}
           <TopNav
             embedded={false}
