@@ -329,6 +329,9 @@ const MapContainer: React.FC<ExtendedMapContainerProps> = ({
     const pos = activeMarker.getPosition();
     if (!pos) return;
 
+    // Pan map to center on the highlighted marker
+    mapRef.current.panTo(pos);
+
     // Dim all non-highlighted markers
     markersByVenueIdRef.current.forEach((marker, vid) => {
       if (vid !== highlightedVenueId) {
