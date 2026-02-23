@@ -262,17 +262,29 @@ export function getGoogleMapsMarkerUrl(
 }
 
 /**
+ * Create an SVG colored dot as a data URI
+ */
+function createDotSvg(hexColor: string, size: number): string {
+  const r = size / 2 - 2;
+  const c = size / 2;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}"><circle cx="${c}" cy="${c}" r="${r}" fill="${hexColor}" stroke="white" stroke-width="2"/></svg>`;
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+}
+
+/**
  * Get the appropriate marker icon configuration
  */
 export function getMarkerIcon(
   venue: any,
   filters?: HierarchicalFilterState,
   size: number = 32
-): { url: string; scaledSize: google.maps.Size } {
+): { url: string; scaledSize: google.maps.Size; anchor: google.maps.Point } {
   const colorScheme = getMarkerColorScheme(venue, filters);
-  
+  const dotSize = Math.round(size * 0.5);
+
   return {
-    url: getGoogleMapsMarkerUrl(colorScheme, size),
-    scaledSize: new google.maps.Size(size, size)
+    url: createDotSvg(colorScheme.svgColor, dotSize),
+    scaledSize: new google.maps.Size(dotSize, dotSize),
+    anchor: new google.maps.Point(dotSize / 2, dotSize / 2),
   };
 }

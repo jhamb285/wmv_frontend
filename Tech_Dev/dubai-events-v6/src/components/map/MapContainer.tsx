@@ -77,6 +77,7 @@ const MapContainer: React.FC<ExtendedMapContainerProps> = ({
   const markersRef = useRef<google.maps.Marker[]>([]);
   const markersByVenueIdRef = useRef<Map<string, google.maps.Marker>>(new Map());
   const highlightOverlayRef = useRef<google.maps.Marker | null>(null);
+  const offerBannerRef = useRef<google.maps.InfoWindow | null>(null);
   const mapViewportRef = useRef({
     center: initialCenter || MAP_OPTIONS.center,
     zoom: initialZoom,
@@ -103,6 +104,10 @@ const MapContainer: React.FC<ExtendedMapContainerProps> = ({
     if (highlightOverlayRef.current) {
       highlightOverlayRef.current.setMap(null);
       highlightOverlayRef.current = null;
+    }
+    if (offerBannerRef.current) {
+      offerBannerRef.current.close();
+      offerBannerRef.current = null;
     }
     console.log('✅ All markers cleared');
   }, []);
@@ -295,10 +300,14 @@ const MapContainer: React.FC<ExtendedMapContainerProps> = ({
   React.useEffect(() => {
     if (!mapRef.current) return;
 
-    // Instantly remove previous highlight overlay
+    // Instantly remove previous highlight overlay & offer banner
     if (highlightOverlayRef.current) {
       highlightOverlayRef.current.setMap(null);
       highlightOverlayRef.current = null;
+    }
+    if (offerBannerRef.current) {
+      offerBannerRef.current.close();
+      offerBannerRef.current = null;
     }
 
     // Instantly reset ALL markers to normal
@@ -363,6 +372,30 @@ const MapContainer: React.FC<ExtendedMapContainerProps> = ({
 
     highlightOverlayRef.current = overlay;
 
+    // Add special offer banner above the marker (only if venue has a valid offer)
+    const offerText = (venue as any)?.special_offers;
+    const offerStr = Array.isArray(offerText) ? offerText.join(', ') : offerText;
+    const hasOffer = offerStr &&
+      typeof offerStr === 'string' &&
+      offerStr.trim() !== '' &&
+      !offerStr.toLowerCase().includes('no special offer');
+
+    if (hasOffer) {
+      const infoWindow = new google.maps.InfoWindow({
+        content: `<style>
+.gm-style-iw-c{padding:0!important;background:transparent!important;box-shadow:none!important;border-radius:0!important;max-width:50vw!important}
+.gm-style-iw-d{overflow:hidden!important;max-height:none!important;max-width:50vw!important}
+.gm-style-iw-tc,.gm-style-iw-t::after{display:none!important}
+button.gm-ui-hover-effect{display:none!important}
+</style><div style="display:flex;align-items:flex-start;gap:6px;max-width:50vw;background:linear-gradient(135deg,#7C3AED,#EC4899);color:#fff;padding:6px 12px 6px 9px;border-radius:12px;font:600 11px/1.4 system-ui,sans-serif;box-shadow:0 3px 12px rgba(124,58,237,0.45);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg><span style="word-wrap:break-word;overflow-wrap:break-word;white-space:normal;">${offerStr.trim()}</span></div>`,
+        disableAutoPan: false,
+        pixelOffset: new google.maps.Size(0, -8),
+      });
+
+      infoWindow.open(mapRef.current, activeMarker);
+      offerBannerRef.current = infoWindow;
+    }
+
     // Keep the active marker bouncing continuously
     activeMarker.setAnimation(google.maps.Animation.BOUNCE);
 
@@ -380,6 +413,10 @@ const MapContainer: React.FC<ExtendedMapContainerProps> = ({
       if (highlightOverlayRef.current) {
         highlightOverlayRef.current.setMap(null);
         highlightOverlayRef.current = null;
+      }
+      if (offerBannerRef.current) {
+        offerBannerRef.current.setMap(null);
+        offerBannerRef.current = null;
       }
     };
   }, [highlightedVenueId, venues, filters]);
