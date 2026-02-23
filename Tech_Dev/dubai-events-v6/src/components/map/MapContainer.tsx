@@ -17,7 +17,7 @@ import VenueFloatingPanel from '@/components/venue/VenueFloatingPanel';
 import FilterBottomSheet from '@/components/filters/FilterBottomSheet';
 import type { MapContainerProps, Venue, HierarchicalFilterState, FilterOptions } from '@/types';
 import { useFilterOptions } from '@/hooks/useFilterOptions';
-import { getMarkerColorScheme, doesVenueMatchFilters, getMarkerIcon } from '@/lib/map/marker-colors';
+import { getMarkerColorScheme, doesVenueMatchFilters, getMarkerIcon, getGoogleMapsMarkerUrl } from '@/lib/map/marker-colors';
 import '@/styles/horizontal-nav.css';
 
 interface DateSelectorProps {
@@ -336,10 +336,14 @@ const MapContainer: React.FC<ExtendedMapContainerProps> = ({
       }
     });
 
-    // Make the active marker larger, full opacity, and on top
+    // Make the active marker use the stock pin icon, full opacity, and on top
     const venue = venues.find(v => String(v.venue_id) === highlightedVenueId);
     if (venue) {
-      activeMarker.setIcon(getMarkerIcon(venue, filters, 48));
+      const colorScheme = getMarkerColorScheme(venue, filters);
+      activeMarker.setIcon({
+        url: getGoogleMapsMarkerUrl(colorScheme, 48),
+        scaledSize: new google.maps.Size(48, 48),
+      });
       activeMarker.setZIndex(999);
       activeMarker.setOpacity(1);
     }
