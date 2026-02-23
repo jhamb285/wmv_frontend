@@ -21,7 +21,7 @@ export const PRIMARY_CATEGORY_MAP: Record<string, CategoryConfig> = {
   },
   "Comedy & Entertainment": {
     display: "Comedy",
-    color: "teal"
+    color: "blue"
   },
   "Nightlife": {
     display: "Nightlife",
