@@ -34,12 +34,12 @@ export const viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "NIGHTP - Dubai Event Discovery",
+  title: "Where's My Vibe - Dubai Event Discovery",
   description: "Discover the hottest events, venues, and nightlife in Dubai through real-time Instagram stories and venue data.",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "NIGHTP",
+    title: "Where's My Vibe",
   },
   keywords: ["Dubai events", "Dubai nightlife", "Dubai venues", "Dubai clubs", "Dubai restaurants", "Dubai entertainment", "Where's My Vibe"],
   authors: [{ name: "Where's My Vibe Team" }],
@@ -65,7 +65,7 @@ export const metadata: Metadata = {
     },
   },
   openGraph: {
-    title: "NIGHTP - Dubai Event Discovery",
+    title: "Where's My Vibe - Dubai Event Discovery",
     description: "Discover the hottest events, venues, and nightlife in Dubai through real-time Instagram stories and venue data.",
     url: "https://wheresmyvibe.com",
     siteName: "Where's My Vibe",
@@ -74,7 +74,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "NIGHTP - Dubai Event Discovery",
+    title: "Where's My Vibe - Dubai Event Discovery",
     description: "Discover the hottest events, venues, and nightlife in Dubai through real-time Instagram stories and venue data.",
     creator: "@wheresmyvibe",
   },
