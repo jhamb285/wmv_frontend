@@ -144,6 +144,19 @@ export default function Home() {
     return Array.from(eventMap.values());
   }, [allVenues]);
 
+  // Venues filtered by date only (not by category) — used for CategoryPills counts
+  // so pill counts reflect the date dropdown but don't change when clicking a category pill
+  const dateFilteredVenues = useMemo(() => {
+    if (filters.activeDates.length === 0) return allVenues;
+    return allVenues.filter(venue => {
+      if (!venue.event_date) return false;
+      try {
+        const venueDate = new Date(venue.event_date).toDateString();
+        return filters.activeDates.includes(venueDate);
+      } catch { return false; }
+    });
+  }, [allVenues, filters.activeDates]);
+
   // Deduplicate by venue_id for map markers
   const venues = useMemo(() => {
     const venueMap = new Map<number, typeof filteredVenues[0]>();
@@ -240,7 +253,7 @@ export default function Home() {
               <CategoryPills
                 filters={filters}
                 onFiltersChange={handleFiltersChange}
-                venues={allVenues}
+                venues={dateFilteredVenues}
                 inlineMode={true}
               />
             }
@@ -299,7 +312,7 @@ export default function Home() {
               <CategoryPills
                 filters={filters}
                 onFiltersChange={handleFiltersChange}
-                venues={allVenues}
+                venues={dateFilteredVenues}
                 inlineMode={true}
               />
             }
