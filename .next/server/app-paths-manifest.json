@@ -1,5 +1,0 @@
-{
-  "/api/filter-options/route": "app/api/filter-options/route.js",
-  "/api/venues/route": "app/api/venues/route.js",
-  "/page": "app/page.js"
-}
