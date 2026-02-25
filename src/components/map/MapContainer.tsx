@@ -88,6 +88,7 @@ const MapContainer: React.FC<ExtendedMapContainerProps> = ({
   const [isFloatingPanelOpen, setIsFloatingPanelOpen] = useState(false);
   const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
   const [mapOptions, setMapOptions] = useState<google.maps.MapOptions | null>(null);
+  const pendingHighlightRef = useRef<string | null>(null);
 
   // Get filter options (loaded once, no parameters needed)
   const { filterOptions } = useFilterOptions();
@@ -246,7 +247,30 @@ const MapContainer: React.FC<ExtendedMapContainerProps> = ({
       
       console.log(`🎯 === MARKER CREATION COMPLETE ===`);
       console.log(`🗺️ Created ${validVenues.length} markers successfully`);
-      
+
+      // If a highlight was requested before markers existed, apply it now
+      const pending = pendingHighlightRef.current;
+      if (pending) {
+        const pendingMarker = markersByVenueIdRef.current.get(pending);
+        if (pendingMarker) {
+          // Dim all others
+          markersByVenueIdRef.current.forEach((m, vid) => {
+            if (vid !== pending) m.setOpacity(0.4);
+          });
+          // Enlarge + bounce the active one
+          const pVenue = validVenues.find(v => String(v.venue_id) === pending);
+          if (pVenue) {
+            const cs = getMarkerColorScheme(pVenue, filters);
+            pendingMarker.setIcon({ url: getGoogleMapsMarkerUrl(cs, 48), scaledSize: new google.maps.Size(48, 48) });
+            pendingMarker.setZIndex(999);
+            pendingMarker.setOpacity(1);
+            pendingMarker.setAnimation(google.maps.Animation.BOUNCE);
+            const pos = pendingMarker.getPosition();
+            if (pos) map.panTo(pos);
+          }
+        }
+      }
+
       // Check map bounds
       const bounds = map.getBounds();
       if (bounds) {
@@ -296,6 +320,9 @@ const MapContainer: React.FC<ExtendedMapContainerProps> = ({
     }
   }, [venues, onMapLoad, clearMarkers]);
 
+  // Keep ref in sync so onMapLoad can access the latest value
+  pendingHighlightRef.current = highlightedVenueId ?? null;
+
   // Highlight the active venue marker with a pulsing ring + bounce
   React.useEffect(() => {
     if (!mapRef.current) return;
@@ -310,21 +337,23 @@ const MapContainer: React.FC<ExtendedMapContainerProps> = ({
       offerBannerRef.current = null;
     }
 
-    // Instantly reset ALL markers to normal
-    markersByVenueIdRef.current.forEach((marker, vid) => {
-      const v = venues.find(ve => String(ve.venue_id) === vid);
-      if (v) {
-        marker.setAnimation(null);
-        marker.setIcon(getMarkerIcon(v, filters, 32));
-        marker.setZIndex(1);
-        marker.setOpacity(1);
-      }
-    });
+    // If no venue is highlighted, reset all markers to normal state
+    if (!highlightedVenueId) {
+      markersByVenueIdRef.current.forEach((marker, vid) => {
+        const v = venues.find(ve => String(ve.venue_id) === vid);
+        if (v) {
+          marker.setAnimation(null);
+          marker.setIcon(getMarkerIcon(v, filters, 32));
+          marker.setZIndex(1);
+          marker.setOpacity(1);
+        }
+      });
+      return;
+    }
 
-    if (!highlightedVenueId) return;
-
+    // Check if the active marker exists yet
     const activeMarker = markersByVenueIdRef.current.get(highlightedVenueId);
-    if (!activeMarker) return;
+    if (!activeMarker) return; // Markers not created yet — pendingHighlightRef in onMapLoad handles this
 
     const pos = activeMarker.getPosition();
     if (!pos) return;
@@ -332,14 +361,18 @@ const MapContainer: React.FC<ExtendedMapContainerProps> = ({
     // Pan map to center on the highlighted marker
     mapRef.current.panTo(pos);
 
-    // Dim all non-highlighted markers
+    // Reset all markers to normal AND dim non-highlighted in one pass
     markersByVenueIdRef.current.forEach((marker, vid) => {
-      if (vid !== highlightedVenueId) {
-        marker.setOpacity(0.4);
+      const v = venues.find(ve => String(ve.venue_id) === vid);
+      if (v) {
+        marker.setAnimation(null);
+        marker.setIcon(getMarkerIcon(v, filters, 32));
+        marker.setZIndex(1);
+        marker.setOpacity(vid === highlightedVenueId ? 1 : 0.4);
       }
     });
 
-    // Make the active marker use the stock pin icon, full opacity, and on top
+    // Enlarge the active marker and bring to front
     const venue = venues.find(v => String(v.venue_id) === highlightedVenueId);
     if (venue) {
       const colorScheme = getMarkerColorScheme(venue, filters);

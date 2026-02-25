@@ -269,7 +269,7 @@ export default function Home() {
             {!desktopListView && (
               <div className="flex-1">
                 <MapContainer
-                  venues={allVenues}
+                  venues={venues}
                   onVenueSelect={handleVenueSelect}
                   filters={filters}
                   onFiltersChange={handleFiltersChange}
@@ -313,7 +313,7 @@ export default function Home() {
             <>
               {/* Full-screen Map (behind everything, below TopNav) */}
               <MobileHeroMap
-                venues={allVenues}
+                venues={venues}
                 onVenueSelect={handleVenueSelect}
                 filters={filters}
                 onFiltersChange={handleFiltersChange}
