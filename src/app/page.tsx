@@ -240,7 +240,7 @@ export default function Home() {
               <CategoryPills
                 filters={filters}
                 onFiltersChange={handleFiltersChange}
-                venues={venues}
+                venues={allVenues}
                 inlineMode={true}
               />
             }
@@ -269,7 +269,7 @@ export default function Home() {
             {!desktopListView && (
               <div className="flex-1">
                 <MapContainer
-                  venues={venues}
+                  venues={allVenues}
                   onVenueSelect={handleVenueSelect}
                   filters={filters}
                   onFiltersChange={handleFiltersChange}
@@ -299,7 +299,7 @@ export default function Home() {
               <CategoryPills
                 filters={filters}
                 onFiltersChange={handleFiltersChange}
-                venues={venues}
+                venues={allVenues}
                 inlineMode={true}
               />
             }
@@ -313,7 +313,7 @@ export default function Home() {
             <>
               {/* Full-screen Map (behind everything, below TopNav) */}
               <MobileHeroMap
-                venues={venues}
+                venues={allVenues}
                 onVenueSelect={handleVenueSelect}
                 filters={filters}
                 onFiltersChange={handleFiltersChange}
