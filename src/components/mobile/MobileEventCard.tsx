@@ -137,96 +137,11 @@ const MobileEventCard: React.FC<MobileEventCardProps> = ({
   const { event, venue } = card;
   const expandedRef = useRef<HTMLDivElement>(null);
   const [isDetailsExpanded, setIsDetailsExpanded] = useState(false);
-  const [carouselIndex, setCarouselIndex] = useState(0);
-  const [isTransitioning, setIsTransitioning] = useState(false);
-  const carouselTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const touchStartXRef = useRef<number>(0);
-  const touchDeltaXRef = useRef<number>(0);
-  const isDraggingRef = useRef(false);
-
   // Build image list from real DB media, fall back to placeholders
   const realImages: string[] = [];
   if ((event as any).media_url_1) realImages.push((event as any).media_url_1);
   if ((event as any).media_url_2) realImages.push((event as any).media_url_2);
   const activeImages = realImages.length > 0 ? realImages : PLACEHOLDER_IMAGES;
-
-  // Infinite image list: [...images, first image clone] for seamless loop
-  const loopImages = [...activeImages, activeImages[0]];
-  const totalReal = activeImages.length;
-
-  // Auto-advance carousel every 3s when fullscreen
-  useEffect(() => {
-    if (!isFullScreen) return;
-    carouselTimerRef.current = setInterval(() => {
-      setIsTransitioning(true);
-      setCarouselIndex(prev => prev + 1);
-    }, 3000);
-    return () => {
-      if (carouselTimerRef.current) clearInterval(carouselTimerRef.current);
-    };
-  }, [isFullScreen]);
-
-  // When transition ends on the clone slide, snap back to real first slide instantly
-  const handleCarouselTransitionEnd = () => {
-    if (carouselIndex >= totalReal) {
-      setIsTransitioning(false);
-      setCarouselIndex(0);
-    }
-  };
-
-  // Safari fallback: transitionend may not fire reliably, force reset after timeout
-  useEffect(() => {
-    if (carouselIndex >= totalReal && isTransitioning) {
-      const fallback = setTimeout(() => {
-        setIsTransitioning(false);
-        setCarouselIndex(0);
-      }, 700);
-      return () => clearTimeout(fallback);
-    }
-  }, [carouselIndex, isTransitioning, totalReal]);
-
-  const resetCarouselTimer = () => {
-    if (carouselTimerRef.current) clearInterval(carouselTimerRef.current);
-    carouselTimerRef.current = setInterval(() => {
-      setIsTransitioning(true);
-      setCarouselIndex(prev => prev + 1);
-    }, 3000);
-  };
-
-  const goToSlide = (idx: number) => {
-    setIsTransitioning(true);
-    setCarouselIndex(idx);
-    resetCarouselTimer();
-  };
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    touchStartXRef.current = e.touches[0].clientX;
-    touchDeltaXRef.current = 0;
-    isDraggingRef.current = true;
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isDraggingRef.current) return;
-    touchDeltaXRef.current = e.touches[0].clientX - touchStartXRef.current;
-  };
-
-  const handleTouchEnd = () => {
-    if (!isDraggingRef.current) return;
-    isDraggingRef.current = false;
-    const threshold = 50;
-    if (touchDeltaXRef.current < -threshold) {
-      // Swipe left → next
-      setIsTransitioning(true);
-      setCarouselIndex(prev => prev + 1);
-      resetCarouselTimer();
-    } else if (touchDeltaXRef.current > threshold) {
-      // Swipe right → prev (wrap around)
-      setIsTransitioning(true);
-      setCarouselIndex(prev => (prev - 1 + totalReal) % totalReal);
-      resetCarouselTimer();
-    }
-    touchDeltaXRef.current = 0;
-  };
 
   // Lock body scroll when full-screen
   useEffect(() => {
@@ -371,73 +286,24 @@ const MobileEventCard: React.FC<MobileEventCardProps> = ({
           className="flex-1 overflow-y-auto px-4 pb-24"
           style={{ scrollbarWidth: 'thin' }}
         >
-          {/* Divider + Image Carousel (always shown) */}
+          {/* Divider + Images side by side */}
           <div style={{ borderTop: '1px solid rgba(0, 0, 0, 0.06)' }} />
-          <div className="my-3 relative">
-            {/* Carousel viewport */}
+          <div className="my-3">
             <div
-              className="overflow-hidden rounded-2xl"
-              style={{ border: '1px solid rgba(0, 0, 0, 0.08)', touchAction: 'pan-y pinch-zoom' }}
-              onTouchStart={handleTouchStart}
-              onTouchMove={handleTouchMove}
-              onTouchEnd={handleTouchEnd}
+              className="flex gap-1.5 rounded-2xl overflow-hidden"
+              style={{ border: '1px solid rgba(0, 0, 0, 0.08)' }}
             >
-              <div
-                className="flex"
-                style={{
-                  transform: `translateX(-${carouselIndex * 100}%)`,
-                  transition: isTransitioning ? 'transform 0.6s cubic-bezier(0.4, 0, 0.2, 1)' : 'none',
-                }}
-                onTransitionEnd={handleCarouselTransitionEnd}
-              >
-                {loopImages.map((src, idx) => (
-                  <div key={idx} className="w-full flex-shrink-0 relative">
-                    <img
-                      src={src}
-                      alt={`${venue.venue_name} ${idx + 1}`}
-                      className="w-full object-cover"
-                      style={{ height: '220px' }}
-                      draggable={false}
-                    />
-                    {/* Gradient overlay at bottom for depth */}
-                    <div
-                      className="absolute bottom-0 left-0 right-0"
-                      style={{
-                        height: '60px',
-                        background: 'linear-gradient(to top, rgba(0,0,0,0.25), transparent)',
-                      }}
-                    />
-                  </div>
-                ))}
-              </div>
+              {activeImages.map((src, idx) => (
+                <div key={idx} className="relative flex-1 min-w-0">
+                  <img
+                    src={src}
+                    alt={`${venue.venue_name} ${idx + 1}`}
+                    className="w-full h-auto block"
+                    draggable={false}
+                  />
+                </div>
+              ))}
             </div>
-
-            {/* Dot indicators */}
-            {totalReal > 1 && (
-              <div className="flex items-center justify-center gap-2 mt-2.5">
-                {activeImages.map((_, idx) => {
-                  const isActive = (carouselIndex % totalReal) === idx;
-                  return (
-                    <button
-                      key={idx}
-                      className="rounded-full transition-all duration-300"
-                      style={{
-                        width: isActive ? '20px' : '6px',
-                        height: '6px',
-                        background: isActive
-                          ? 'linear-gradient(135deg, #7c3aed, #a78bfa)'
-                          : 'rgba(0, 0, 0, 0.12)',
-                        boxShadow: isActive ? '0 1px 4px rgba(124, 58, 237, 0.4)' : 'none',
-                      }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        goToSlide(idx);
-                      }}
-                    />
-                  );
-                })}
-              </div>
-            )}
           </div>
 
           {/* Date Pills */}
