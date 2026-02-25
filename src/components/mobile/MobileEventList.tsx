@@ -97,6 +97,7 @@ const MobileEventList: React.FC<MobileEventListProps> = ({
   const [expandedCardOverride, setExpandedCardOverride] = useState<EventCardData | null>(null);
   const [expandedLocalDates, setExpandedLocalDates] = useState<string[]>([]);
   const [miniCardOverrides, setMiniCardOverrides] = useState<Map<string, { card: EventCardData; dates: string[] }>>(new Map());
+  const lastExpandedEventIdRef = useRef<string | null>(null);
 
   // Filter cards: when specific dates are active, only show cards for venues
   // that actually have events on those dates (using venueDateMap as source of truth)
@@ -145,9 +146,9 @@ const MobileEventList: React.FC<MobileEventListProps> = ({
       if (startIndex === 0) {
         scrollRef.current.scrollLeft = 0;
       } else {
-        // Look up the card element by venue ID (reliable, order-independent)
-        const targetVenueId = displayCards[startIndex]?.venue.id;
-        const targetEl = targetVenueId ? cardRefs.current.get(targetVenueId) : null;
+        // Look up the card element by event ID (unique per card)
+        const targetEventId = displayCards[startIndex]?.event.id;
+        const targetEl = targetEventId ? cardRefs.current.get(targetEventId) : null;
         // Manual scroll for Safari compatibility (scrollIntoView options not fully supported)
         const container = scrollRef.current;
         if (container && targetEl) {
@@ -236,10 +237,29 @@ const MobileEventList: React.FC<MobileEventListProps> = ({
     }
   }, [selectedVenueId, displayCards]);
 
+  // Scroll carousel back to the card that was just collapsed from full-screen
+  useEffect(() => {
+    if (!listFullScreenVenueId && lastExpandedEventIdRef.current) {
+      const eventId = lastExpandedEventIdRef.current;
+      lastExpandedEventIdRef.current = null;
+      const idx = displayCards.findIndex(c => c.event.id === eventId);
+      if (idx >= 0) {
+        setActiveCardIndex(idx);
+        requestAnimationFrame(() => {
+          const targetEl = cardRefs.current.get(eventId);
+          if (targetEl && scrollRef.current) {
+            scrollRef.current.scrollLeft = targetEl.offsetLeft - scrollRef.current.offsetLeft;
+          }
+        });
+      }
+    }
+  }, [listFullScreenVenueId, displayCards]);
+
   // --- List mode handlers ---
-  const handleListFullScreenToggle = useCallback((venueId: string) => {
+  const handleListFullScreenToggle = useCallback((venueId: string, eventId?: string) => {
     setListFullScreenVenueId(prev => {
       if (prev === venueId) {
+        lastExpandedEventIdRef.current = eventId || null;
         setExpandedCardOverride(null);
         setExpandedLocalDates([]);
         return null;
@@ -342,7 +362,7 @@ const MobileEventList: React.FC<MobileEventListProps> = ({
               onToggle={() => setMarkerFullScreen(false)}
               isFullScreen={true}
               onFullScreenToggle={() => setMarkerFullScreen(false)}
-              onClose={handleMarkerClose}
+              onClose={() => setMarkerFullScreen(false)}
               dateOptions={venueDateMap.get(markerCard.venue.id) || []}
               selectedDates={selectedDates}
               onDateChange={onDateChange}
@@ -392,10 +412,10 @@ const MobileEventList: React.FC<MobileEventListProps> = ({
               card={listFullScreenCard}
               getCategoryColor={getCategoryColor}
               isExpanded={true}
-              onToggle={() => { setListFullScreenVenueId(null); setExpandedCardOverride(null); setExpandedLocalDates([]); }}
+              onToggle={() => { lastExpandedEventIdRef.current = listFullScreenCard.event.id; setListFullScreenVenueId(null); setExpandedCardOverride(null); setExpandedLocalDates([]); }}
               isFullScreen={true}
-              onFullScreenToggle={() => { setListFullScreenVenueId(null); setExpandedCardOverride(null); setExpandedLocalDates([]); }}
-              onClose={() => { setListFullScreenVenueId(null); setExpandedCardOverride(null); setExpandedLocalDates([]); }}
+              onFullScreenToggle={() => { lastExpandedEventIdRef.current = listFullScreenCard.event.id; setListFullScreenVenueId(null); setExpandedCardOverride(null); setExpandedLocalDates([]); }}
+              onClose={() => { lastExpandedEventIdRef.current = listFullScreenCard.event.id; setListFullScreenVenueId(null); setExpandedCardOverride(null); setExpandedLocalDates([]); }}
               dateOptions={venueDateMap.get(listFullScreenCard.venue.id) || []}
               selectedDates={expandedSelectedDates}
               onDateChange={(dates) => handleExpandedDateChange(listFullScreenCard.venue.id, dates)}
@@ -441,7 +461,7 @@ const MobileEventList: React.FC<MobileEventListProps> = ({
                     <div
                       key={`${card.venue.id}-${card.event.id}`}
                       ref={(el) => {
-                        if (el) cardRefs.current.set(card.venue.id, el);
+                        if (el) cardRefs.current.set(card.event.id, el);
                       }}
                       className="flex-shrink-0 flex"
                       style={{
@@ -454,20 +474,20 @@ const MobileEventList: React.FC<MobileEventListProps> = ({
                         getCategoryColor={getCategoryColor}
                         isExpanded={true}
                         onToggle={() => {
-                          // Carry minicard override into expanded card
-                          if (override) {
-                            setExpandedCardOverride(override.card);
+                          // Always carry the displayed card into expanded view
+                          setExpandedCardOverride(displayCard);
+                          if (isOverrideValid && override) {
                             setExpandedLocalDates(override.dates);
                           }
-                          handleListFullScreenToggle(card.venue.id);
+                          handleListFullScreenToggle(card.venue.id, card.event.id);
                         }}
                         isFullScreen={false}
                         onFullScreenToggle={() => {
-                          if (override) {
-                            setExpandedCardOverride(override.card);
+                          setExpandedCardOverride(displayCard);
+                          if (isOverrideValid && override) {
                             setExpandedLocalDates(override.dates);
                           }
-                          handleListFullScreenToggle(card.venue.id);
+                          handleListFullScreenToggle(card.venue.id, card.event.id);
                         }}
                         onClose={handleListDismiss}
                         dateOptions={venueDateMap.get(card.venue.id) || []}

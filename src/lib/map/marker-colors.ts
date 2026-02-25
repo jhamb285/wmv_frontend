@@ -108,9 +108,13 @@ export function getMarkerColorScheme(venue: any, filters?: HierarchicalFilterSta
     
     switch (activeType) {
       case 'eventCategories':
-        // Use the first selected event category color
-        const firstCategory = filters?.eventCategories?.selectedPrimaries[0];
-        colorName = firstCategory ? getCategoryColor(firstCategory) : 'gray';
+        // Use the color of the category this venue actually matches
+        const venueCategories = venue.event_categories || [];
+        const selectedPrimaries = filters?.eventCategories?.selectedPrimaries || [];
+        const matchedCategory = selectedPrimaries.find((cat: string) =>
+          venueCategories.some((vc: any) => vc.primary === cat)
+        );
+        colorName = matchedCategory ? getCategoryColor(matchedCategory) : getCategoryColor(selectedPrimaries[0] || '');
         hexColor = getHexColor(colorName);
         break;
         
