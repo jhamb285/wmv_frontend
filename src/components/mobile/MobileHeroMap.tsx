@@ -34,7 +34,7 @@ const MobileHeroMap: React.FC<MobileHeroMapProps> = ({
         isLoading={isLoading}
         embedMode={true}
         disableFloatingPanel={true}
-        gestureMode="cooperative"
+        gestureMode="greedy"
         onMapClick={onMapClick}
         highlightedVenueId={highlightedVenueId}
       />
