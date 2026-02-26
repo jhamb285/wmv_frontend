@@ -52,6 +52,18 @@ export default function ListView() {
 
   const { allVenues, filteredVenues, isLoading } = useClientSideVenues(filters);
 
+  // Venues filtered by date only (not by category) — for CategoryPills counts
+  const dateFilteredVenues = useMemo(() => {
+    if (filters.activeDates.length === 0) return allVenues;
+    return allVenues.filter(venue => {
+      if (!venue.event_date) return false;
+      try {
+        const venueDate = new Date(venue.event_date).toDateString();
+        return filters.activeDates.includes(venueDate);
+      } catch { return false; }
+    });
+  }, [allVenues, filters.activeDates]);
+
   // State for filter sheet modal
   const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
   const [navHeight, setNavHeight] = useState(130);
@@ -154,7 +166,7 @@ export default function ListView() {
             <CategoryPills
               filters={filters}
               onFiltersChange={handleFiltersChange}
-              venues={allVenues}
+              venues={dateFilteredVenues}
               inlineMode={true}
             />
           }

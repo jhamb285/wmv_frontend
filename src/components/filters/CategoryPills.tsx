@@ -139,7 +139,11 @@ const CategoryPills: React.FC<CategoryPillsProps> = ({
     <div className="flex flex-col gap-2">
       {/* Primary Category Row with Icons */}
       <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-0.5" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-        {Object.keys(PRIMARY_CATEGORY_MAP).map(category => {
+        {Object.keys(PRIMARY_CATEGORY_MAP)
+          .map(category => ({ category, count: getCategoryCount(category) }))
+          .filter(({ count }) => count > 0)
+          .sort((a, b) => b.count - a.count)
+          .map(({ category }) => {
           const isSelected = eventCategories.selectedPrimaries.includes(category);
           const isExpanded = eventCategories.expandedPrimaries.includes(category);
           const hexColor = getHexColor(getCategoryColor(category));
