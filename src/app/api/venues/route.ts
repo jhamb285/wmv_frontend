@@ -75,7 +75,8 @@ export async function GET() {
         media_url_1,
         media_type_1,
         media_url_2,
-        media_type_2
+        media_type_2,
+        deals
       `)
       .not('venue_id', 'is', null) // Only get records with venue data
       .not('venue_lat', 'is', null) // Must have coordinates for map
@@ -216,7 +217,8 @@ export async function GET() {
       media_url_1: record.media_url_1 || null,
       media_type_1: record.media_type_1 || null,
       media_url_2: record.media_url_2 || null,
-      media_type_2: record.media_type_2 || null
+      media_type_2: record.media_type_2 || null,
+      deals: record.deals || null
     })) || [];
 
     // Apply vibes filtering in memory for complex string matching

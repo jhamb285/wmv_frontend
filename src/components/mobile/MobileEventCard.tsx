@@ -18,6 +18,8 @@ import {
   ChevronUp,
   X,
   Target,
+  Globe,
+  Tag,
 } from 'lucide-react';
 
 interface EventCardData {
@@ -39,6 +41,7 @@ interface EventCardData {
     analysis_notes?: string;
     website_social?: string;
     event_categories?: Array<{ primary: string; secondary?: string }>;
+    deals?: Array<{ type: string; timing?: string | null; description: string }>;
   };
   venue: {
     id: string;
@@ -53,6 +56,7 @@ interface EventCardData {
     venue_address?: string;
     venue_highlights?: string;
     venue_atmosphere?: string;
+    venue_category?: string;
     attributes?: {
       venue?: string[];
       energy?: string[];
@@ -83,6 +87,7 @@ interface MobileEventCardProps {
   isPresetRange?: boolean;
   presetRangeDates?: string[];
   navHeight?: number;
+  isFocused?: boolean;
 }
 
 const PLACEHOLDER_IMAGES = [
@@ -119,6 +124,79 @@ function parseToArray(value: unknown): string[] {
   return [String(value)];
 }
 
+// Auto-scrolling pills component with continuous seamless loop
+function AutoScrollPills({ tags, isActive }: { tags: Array<{ label: string; bg: string; text: string }>; isActive: boolean }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const isPaused = useRef(false);
+  const animRef = useRef<number>(0);
+  const [hasOverflow, setHasOverflow] = useState(false);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setHasOverflow(el.scrollWidth > el.clientWidth);
+  }, [tags]);
+
+  useEffect(() => {
+    if (!isActive || !hasOverflow) return;
+
+    const el = scrollRef.current;
+    if (!el) return;
+
+    // The inner content is duplicated, so half scrollWidth = one full set
+    const halfWidth = el.scrollWidth / 2;
+
+    const animate = () => {
+      if (!isPaused.current && el) {
+        el.scrollLeft += 0.4;
+        // When we've scrolled past the first set, jump back seamlessly
+        if (el.scrollLeft >= halfWidth) {
+          el.scrollLeft -= halfWidth;
+        }
+      }
+      animRef.current = requestAnimationFrame(animate);
+    };
+
+    animRef.current = requestAnimationFrame(animate);
+
+    return () => cancelAnimationFrame(animRef.current);
+  }, [isActive, hasOverflow]);
+
+  const handleTouchStart = () => { isPaused.current = true; };
+  const handleTouchEnd = () => {
+    setTimeout(() => { isPaused.current = false; }, 2000);
+  };
+
+  // Duplicate tags for seamless loop
+  const displayTags = hasOverflow ? [...tags, ...tags] : tags;
+
+  return (
+    <div className="mx-3.5 pt-1.5 pb-1">
+      <div
+        ref={scrollRef}
+        className="flex items-center gap-1.5 overflow-x-auto"
+        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+        onClick={(e) => e.stopPropagation()}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        onMouseDown={handleTouchStart}
+        onMouseUp={handleTouchEnd}
+        onMouseLeave={handleTouchEnd}
+      >
+        {displayTags.map((tag, i) => (
+          <span
+            key={i}
+            className="text-[9px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap flex-shrink-0"
+            style={{ background: tag.bg, color: tag.text }}
+          >
+            {tag.label}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 const MobileEventCard: React.FC<MobileEventCardProps> = ({
   card,
   getCategoryColor,
@@ -133,6 +211,7 @@ const MobileEventCard: React.FC<MobileEventCardProps> = ({
   isPresetRange = false,
   presetRangeDates = [],
   navHeight = 140,
+  isFocused = false,
 }) => {
   const { event, venue } = card;
   const expandedRef = useRef<HTMLDivElement>(null);
@@ -361,6 +440,24 @@ const MobileEventCard: React.FC<MobileEventCardProps> = ({
 
           {/* Detail rows */}
           <div className="space-y-4">
+            {/* Event Type */}
+            {event.event_categories && event.event_categories.length > 0 && (
+              <div className="flex items-center gap-3.5">
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                     style={{ background: 'rgba(20, 184, 166, 0.15)', border: '1px solid rgba(20, 184, 166, 0.1)' }}>
+                  <Tag className="w-4 h-4 text-teal-500" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-[10px] uppercase tracking-[0.12em] font-semibold text-gray-500">
+                    {event.event_categories.map(cat => cat.primary).join(', ')}
+                  </p>
+                  <p className="text-[14px] font-medium mt-0.5 text-gray-900">
+                    {event.event_categories.map(cat => cat.secondary).filter(Boolean).join(', ') || '—'}
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Date */}
             <div className="flex items-center gap-3.5">
               <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
@@ -403,8 +500,47 @@ const MobileEventCard: React.FC<MobileEventCardProps> = ({
               </div>
             </div>
 
-            {/* Offers */}
-            {event.event_offers && !event.event_offers.toLowerCase().includes('no special offers') && (
+            {/* Deals & Offers */}
+            {event.deals && event.deals.length > 0 ? (
+              <div className="flex items-start gap-3.5">
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5"
+                     style={{ background: 'rgba(251, 191, 36, 0.15)', border: '1px solid rgba(251, 191, 36, 0.1)' }}>
+                  <Gift className="w-4 h-4 text-amber-500" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-[10px] uppercase tracking-[0.12em] font-semibold text-gray-500">Deals & Offers</p>
+                  <div className="mt-1.5 space-y-2">
+                    {event.deals.map((deal, idx) => {
+                      const dealConfig: Record<string, { label: string; bg: string; text: string; border: string }> = {
+                        ladies_night: { label: 'Ladies Night', bg: 'rgba(236, 72, 153, 0.12)', text: 'rgb(190, 24, 93)', border: 'rgba(236, 72, 153, 0.2)' },
+                        '2for1': { label: 'Buy 1 Get 1', bg: 'rgba(16, 185, 129, 0.12)', text: 'rgb(5, 150, 105)', border: 'rgba(16, 185, 129, 0.2)' },
+                        happy_hour: { label: 'Happy Hour', bg: 'rgba(251, 191, 36, 0.12)', text: 'rgb(180, 130, 20)', border: 'rgba(251, 191, 36, 0.2)' },
+                        discount: { label: 'Discount', bg: 'rgba(59, 130, 246, 0.12)', text: 'rgb(37, 99, 235)', border: 'rgba(59, 130, 246, 0.2)' },
+                        free_entry: { label: 'Free Entry', bg: 'rgba(34, 197, 94, 0.12)', text: 'rgb(22, 163, 74)', border: 'rgba(34, 197, 94, 0.2)' },
+                        special_offer: { label: 'Special Offer', bg: 'rgba(249, 115, 22, 0.12)', text: 'rgb(194, 80, 10)', border: 'rgba(249, 115, 22, 0.2)' },
+                      };
+                      const config = dealConfig[deal.type] || dealConfig.special_offer;
+                      return (
+                        <div key={idx} className="rounded-lg px-2.5 py-2" style={{ background: 'rgba(0, 0, 0, 0.02)', border: '1px solid rgba(0, 0, 0, 0.05)' }}>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span
+                              className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full"
+                              style={{ background: config.bg, color: config.text, border: `1px solid ${config.border}` }}
+                            >
+                              {config.label}
+                            </span>
+                            {deal.timing && (
+                              <span className="text-[10px] text-gray-500 font-medium">{deal.timing}</span>
+                            )}
+                          </div>
+                          <p className="text-[12px] text-gray-700 mt-1 leading-relaxed">{deal.description}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            ) : event.event_offers && !event.event_offers.toLowerCase().includes('no special offers') ? (
               <div className="flex items-center gap-3.5">
                 <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
                      style={{ background: 'rgba(251, 191, 36, 0.15)', border: '1px solid rgba(251, 191, 36, 0.1)' }}>
@@ -415,7 +551,7 @@ const MobileEventCard: React.FC<MobileEventCardProps> = ({
                   <p className="text-[14px] font-medium mt-0.5 text-gray-900">{event.event_offers}</p>
                 </div>
               </div>
-            )}
+            ) : null}
 
             {/* AI Confidence Score */}
             {event.confidence_score != null && (
@@ -478,6 +614,7 @@ const MobileEventCard: React.FC<MobileEventCardProps> = ({
                 </div>
               </div>
             )}
+
           </div>
 
           {/* Artists, Genres & Vibes */}
@@ -562,13 +699,19 @@ const MobileEventCard: React.FC<MobileEventCardProps> = ({
           </div>
 
           {/* Venue Details Section */}
-          {(venue.venue_address || highlightTags.length > 0 || atmosphereTags.length > 0 || venue.venue_phone) && (
+          {(venue.venue_category || venue.venue_address || highlightTags.length > 0 || atmosphereTags.length > 0 || venue.venue_phone || venue.venue_website) && (
             <>
               <div className="my-4" style={{ borderTop: '1px solid rgba(0, 0, 0, 0.06)' }} />
               <div>
                 <p className="text-[11px] text-gray-500 uppercase tracking-wider font-bold mb-3">Venue Details</p>
 
                 <div className="space-y-2.5">
+                  {venue.venue_category && (
+                    <div className="flex items-center gap-2.5">
+                      <Tag className="w-[18px] h-[18px] flex-shrink-0" style={{ color: 'rgba(156, 163, 175, 0.8)' }} />
+                      <span className="text-gray-700 text-[13px]">{parseToArray(venue.venue_category).join(', ')}</span>
+                    </div>
+                  )}
                   {highlightTags.length > 0 && (
                     <div className="flex items-center gap-2.5">
                       <Star className="w-[18px] h-[18px] flex-shrink-0" style={{ color: 'rgba(156, 163, 175, 0.8)' }} />
@@ -591,6 +734,20 @@ const MobileEventCard: React.FC<MobileEventCardProps> = ({
                     <div className="flex items-start gap-2.5">
                       <MapPin className="w-[18px] h-[18px] flex-shrink-0 mt-0.5" style={{ color: 'rgba(156, 163, 175, 0.8)' }} />
                       <span className="text-gray-700 text-[13px] leading-relaxed">{venue.venue_address}</span>
+                    </div>
+                  )}
+                  {venue.venue_website && (
+                    <div className="flex items-center gap-2.5">
+                      <Globe className="w-[18px] h-[18px] flex-shrink-0" style={{ color: 'rgba(156, 163, 175, 0.8)' }} />
+                      <a
+                        href={venue.venue_website.startsWith('http') ? venue.venue_website : `https://${venue.venue_website}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 text-[13px] font-medium truncate"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {venue.venue_website.replace(/^https?:\/\/(www\.)?/, '')}
+                      </a>
                     </div>
                   )}
                 </div>
@@ -693,6 +850,23 @@ const MobileEventCard: React.FC<MobileEventCardProps> = ({
             <MapPin className="w-2.5 h-2.5 text-gray-400 flex-shrink-0" />
             <span className="text-gray-500 text-[10px] truncate">{venue.venue_location}</span>
           </div>
+          {event.event_entry_price && !event.event_entry_price.toLowerCase().includes('contact') && (
+            <div className="flex items-center gap-1 mt-0.5">
+              <DollarSign className="w-3 h-3 text-emerald-500 flex-shrink-0" />
+              <span className="text-emerald-600 text-[11px] font-semibold truncate">
+                {(() => {
+                  const words = event.event_entry_price.split(/\s+/);
+                  const seen = new Set<string>();
+                  return words.filter(w => {
+                    const lower = w.toLowerCase();
+                    if (seen.has(lower)) return false;
+                    seen.add(lower);
+                    return true;
+                  }).join(' ');
+                })()}
+              </span>
+            </div>
+          )}
         </div>
         {/* Right Column: Image */}
         <div className="flex flex-col items-center flex-shrink-0" style={{ width: '100px' }}>
@@ -711,6 +885,56 @@ const MobileEventCard: React.FC<MobileEventCardProps> = ({
 
       {/* Divider */}
       <div className="mx-3.5" style={{ borderTop: '1px solid rgba(0,0,0,0.06)' }} />
+
+      {/* === SECTION 1.5: Compact data tags === */}
+      {(() => {
+        const tags: Array<{ label: string; bg: string; text: string }> = [];
+
+        // Deal type badge (first deal only)
+        if (event.deals && event.deals.length > 0) {
+          const dealLabels: Record<string, { label: string; bg: string; text: string }> = {
+            ladies_night: { label: 'Ladies Night', bg: 'rgba(236, 72, 153, 0.12)', text: 'rgb(190, 24, 93)' },
+            '2for1': { label: 'BOGO', bg: 'rgba(16, 185, 129, 0.12)', text: 'rgb(5, 150, 105)' },
+            happy_hour: { label: 'Happy Hour', bg: 'rgba(251, 191, 36, 0.12)', text: 'rgb(180, 130, 20)' },
+            discount: { label: 'Discount', bg: 'rgba(59, 130, 246, 0.12)', text: 'rgb(37, 99, 235)' },
+            free_entry: { label: 'Free Entry', bg: 'rgba(34, 197, 94, 0.12)', text: 'rgb(22, 163, 74)' },
+            special_offer: { label: 'Special Offer', bg: 'rgba(249, 115, 22, 0.12)', text: 'rgb(194, 80, 10)' },
+          };
+          const d = event.deals[0];
+          const cfg = dealLabels[d.type] || dealLabels.special_offer;
+          tags.push(cfg);
+        }
+
+        // Event type (each secondary as separate pill)
+        if (event.event_categories && event.event_categories.length > 0) {
+          event.event_categories.forEach(c => {
+            if (c.secondary) tags.push({ label: c.secondary, bg: 'rgba(20, 184, 166, 0.1)', text: 'rgb(13, 148, 136)' });
+          });
+        }
+
+        // Music genre (each genre as separate pill)
+        if (event.music_genre) {
+          event.music_genre.split(',').map(g => g.trim()).filter(Boolean).forEach(genre => {
+            tags.push({ label: genre, bg: 'rgba(59, 130, 246, 0.1)', text: 'rgb(37, 99, 235)' });
+          });
+        }
+
+        // Venue category (each category as separate pill)
+        if (venue.venue_category) {
+          parseToArray(venue.venue_category).forEach(cat => {
+            tags.push({ label: cat, bg: 'rgba(107, 114, 128, 0.1)', text: 'rgb(107, 114, 128)' });
+          });
+        }
+
+        // Special offer (only if no deals and not "no special offers")
+        if (!event.deals?.length && event.event_offers && !event.event_offers.toLowerCase().includes('no special')) {
+          tags.push({ label: event.event_offers, bg: 'rgba(249, 115, 22, 0.1)', text: 'rgb(194, 80, 10)' });
+        }
+
+        if (tags.length === 0) return null;
+
+        return <AutoScrollPills tags={tags} isActive={isFocused && !isFullScreen} />;
+      })()}
 
       {/* === SECTION 2: Dates + Expand — grows to fill remaining space === */}
       <div className="px-3 py-2 flex items-center gap-2 flex-1">

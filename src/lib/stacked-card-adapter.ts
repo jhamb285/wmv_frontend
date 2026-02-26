@@ -244,6 +244,7 @@ export function transformSupabaseDataToStackedCards(
         event_categories: venue.event_categories,
         media_url_1: venue.media_url_1,
         media_url_2: venue.media_url_2,
+        deals: venue.deals,
       },
       venue: {
         id: venue.venue_id?.toString() || '',
@@ -263,6 +264,7 @@ export function transformSupabaseDataToStackedCards(
         venue_address: venue.address || venue.venue_address,
         venue_highlights: venue.venue_highlights,
         venue_atmosphere: venue.venue_atmosphere,
+        venue_category: venue.category,
         attributes: venue.attributes,
       }
     };

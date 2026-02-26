@@ -482,7 +482,7 @@ const MobileEventList: React.FC<MobileEventListProps> = ({
                 } as React.CSSProperties}
                 onScroll={handleCarouselScroll}
               >
-                {displayCards.map((card) => {
+                {displayCards.map((card, cardIndex) => {
                   const override = miniCardOverrides.get(card.venue.id);
                   // Only use override if its date falls within the active date range
                   const isOverrideValid = override && (
@@ -529,6 +529,7 @@ const MobileEventList: React.FC<MobileEventListProps> = ({
                         onDateChange={(dates) => handleMiniCardDateChange(card.venue.id, dates)}
                         isPresetRange={isPresetRange}
                         presetRangeDates={presetRangeDates}
+                        isFocused={cardIndex === activeCardIndex}
                       />
                     </div>
                   );
