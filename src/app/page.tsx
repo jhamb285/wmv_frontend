@@ -7,6 +7,7 @@ import CategoryPills from '@/components/filters/CategoryPills';
 import EventListPanel from '@/components/events/EventListPanel';
 import FilterBottomSheet from '@/components/filters/FilterBottomSheet';
 import WelcomePopup from '@/components/onboarding/WelcomePopup';
+import TutorialOverlay from '@/components/onboarding/TutorialOverlay';
 import MobileHeroMap from '@/components/mobile/MobileHeroMap';
 import MobileEventList from '@/components/mobile/MobileEventList';
 import MobileEventCard from '@/components/mobile/MobileEventCard';
@@ -170,6 +171,7 @@ export default function Home() {
   }, [filteredVenues]);
 
   const [showWelcomePopup, setShowWelcomePopup] = useState(false);
+  const [showTutorial, setShowTutorial] = useState(false);
   const [selectedVenue, setSelectedVenue] = useState<Venue | null>(null);
   const [hoveredVenue, setHoveredVenue] = useState<Venue | null>(null);
   const [mobileView, setMobileView] = useState<'map' | 'list'>('map');
@@ -199,6 +201,13 @@ export default function Home() {
   const handleCloseWelcomePopup = () => {
     setShowWelcomePopup(false);
     sessionStorage.setItem('hasSeenWelcomePopup', 'true');
+    // Show tutorial overlay after welcome popup closes
+    setShowTutorial(true);
+  };
+
+  const handleCloseTutorial = () => {
+    setShowTutorial(false);
+    sessionStorage.setItem('hasSeenTutorial', 'true');
   };
 
   const handleVenueSelect = useCallback((venue: Venue) => {
@@ -414,6 +423,12 @@ export default function Home() {
         <WelcomePopup
           isOpen={showWelcomePopup}
           onClose={handleCloseWelcomePopup}
+        />
+
+        {/* Tutorial Overlay — shows after welcome popup */}
+        <TutorialOverlay
+          isOpen={showTutorial}
+          onClose={handleCloseTutorial}
         />
       </main>
     </ThemeProvider>
