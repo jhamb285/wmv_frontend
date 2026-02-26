@@ -88,7 +88,7 @@ const MapContainer: React.FC<ExtendedMapContainerProps> = ({
   const [isFloatingPanelOpen, setIsFloatingPanelOpen] = useState(false);
   const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
   const [mapOptions, setMapOptions] = useState<google.maps.MapOptions | null>(null);
-  const pendingHighlightRef = useRef<string | null>(null);
+  const [markersVersion, setMarkersVersion] = useState(0);
 
   // Get filter options (loaded once, no parameters needed)
   const { filterOptions } = useFilterOptions();
@@ -248,28 +248,8 @@ const MapContainer: React.FC<ExtendedMapContainerProps> = ({
       console.log(`🎯 === MARKER CREATION COMPLETE ===`);
       console.log(`🗺️ Created ${validVenues.length} markers successfully`);
 
-      // If a highlight was requested before markers existed, apply it now
-      const pending = pendingHighlightRef.current;
-      if (pending) {
-        const pendingMarker = markersByVenueIdRef.current.get(pending);
-        if (pendingMarker) {
-          // Dim all others
-          markersByVenueIdRef.current.forEach((m, vid) => {
-            if (vid !== pending) m.setOpacity(0.4);
-          });
-          // Enlarge + bounce the active one
-          const pVenue = validVenues.find(v => String(v.venue_id) === pending);
-          if (pVenue) {
-            const cs = getMarkerColorScheme(pVenue, filters);
-            pendingMarker.setIcon({ url: getGoogleMapsMarkerUrl(cs, 48), scaledSize: new google.maps.Size(48, 48) });
-            pendingMarker.setZIndex(999);
-            pendingMarker.setOpacity(1);
-            pendingMarker.setAnimation(google.maps.Animation.BOUNCE);
-            const pos = pendingMarker.getPosition();
-            if (pos) map.panTo(pos);
-          }
-        }
-      }
+      // Signal that markers were created so the highlight effect can re-run
+      setMarkersVersion(v => v + 1);
 
       // Check map bounds
       const bounds = map.getBounds();
@@ -320,9 +300,6 @@ const MapContainer: React.FC<ExtendedMapContainerProps> = ({
     }
   }, [venues, onMapLoad, clearMarkers]);
 
-  // Keep ref in sync so onMapLoad can access the latest value
-  pendingHighlightRef.current = highlightedVenueId ?? null;
-
   // Highlight the active venue marker with a pulsing ring + bounce
   React.useEffect(() => {
     if (!mapRef.current) return;
@@ -353,7 +330,7 @@ const MapContainer: React.FC<ExtendedMapContainerProps> = ({
 
     // Check if the active marker exists yet
     const activeMarker = markersByVenueIdRef.current.get(highlightedVenueId);
-    if (!activeMarker) return; // Markers not created yet — pendingHighlightRef in onMapLoad handles this
+    if (!activeMarker) return; // Markers not created yet — markersVersion dep will re-trigger when ready
 
     const pos = activeMarker.getPosition();
     if (!pos) return;
@@ -459,7 +436,7 @@ button.gm-ui-hover-effect{display:none!important}
         offerBannerRef.current = null;
       }
     };
-  }, [highlightedVenueId, venues, filters]);
+  }, [highlightedVenueId, venues, filters, markersVersion]);
 
   const onMapUnmount = useCallback(() => {
     mapRef.current = null;
