@@ -38,6 +38,7 @@ interface ExtendedMapContainerProps extends MapContainerProps {
   gestureMode?: 'greedy' | 'cooperative'; // Controls map gesture handling. 'cooperative' requires two-finger pan (for embedded scrollable maps)
   onMapClick?: () => void; // Called when the map background is clicked (not a marker)
   highlightedVenueId?: string | null; // Venue ID to highlight on the map with a pulsing effect
+  highlightedOffer?: string | null; // Offer text from the active card (avoids venue dedup mismatch)
 }
 
 const MapContainer: React.FC<ExtendedMapContainerProps> = ({
@@ -57,6 +58,7 @@ const MapContainer: React.FC<ExtendedMapContainerProps> = ({
   gestureMode,
   onMapClick,
   highlightedVenueId,
+  highlightedOffer,
 }) => {
   console.log('🚨 MAP CONTAINER RENDER - Component is rendering!');
   console.log('🚨 MAP CONTAINER RENDER - Filters:', filters);
@@ -389,9 +391,9 @@ const MapContainer: React.FC<ExtendedMapContainerProps> = ({
 
     highlightOverlayRef.current = overlay;
 
-    // Add special offer banner above the marker (only if venue has a valid offer)
-    const offerText = (venue as any)?.special_offers;
-    const offerStr = Array.isArray(offerText) ? offerText.join(', ') : offerText;
+    // Add special offer banner above the marker
+    // Use highlightedOffer from the active card (avoids venue dedup mismatch)
+    const offerStr = highlightedOffer || null;
     const hasOffer = offerStr &&
       typeof offerStr === 'string' &&
       offerStr.trim() !== '' &&
@@ -404,7 +406,7 @@ const MapContainer: React.FC<ExtendedMapContainerProps> = ({
 .gm-style-iw-d{overflow:hidden!important;max-height:none!important;max-width:50vw!important}
 .gm-style-iw-tc,.gm-style-iw-t::after{display:none!important}
 button.gm-ui-hover-effect{display:none!important}
-</style><div style="display:flex;align-items:flex-start;gap:6px;max-width:50vw;background:linear-gradient(135deg,#7C3AED,#EC4899);color:#fff;padding:6px 12px 6px 9px;border-radius:12px;font:600 11px/1.4 system-ui,sans-serif;box-shadow:0 3px 12px rgba(124,58,237,0.45);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg><span style="word-wrap:break-word;overflow-wrap:break-word;white-space:normal;">${offerStr.trim()}</span></div>`,
+</style><div style="display:flex;align-items:flex-start;gap:6px;max-width:50vw;background:linear-gradient(135deg,#7C3AED,#EC4899);color:#fff;padding:6px 12px 6px 9px;border-radius:0;font:600 11px/1.4 system-ui,sans-serif;box-shadow:0 3px 12px rgba(124,58,237,0.45);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg><span style="word-wrap:break-word;overflow-wrap:break-word;white-space:normal;">${offerStr.trim()}</span></div>`,
         disableAutoPan: false,
         pixelOffset: new google.maps.Size(0, -8),
       });
@@ -432,11 +434,11 @@ button.gm-ui-hover-effect{display:none!important}
         highlightOverlayRef.current = null;
       }
       if (offerBannerRef.current) {
-        offerBannerRef.current.setMap(null);
+        offerBannerRef.current.close();
         offerBannerRef.current = null;
       }
     };
-  }, [highlightedVenueId, venues, filters, markersVersion]);
+  }, [highlightedVenueId, highlightedOffer, venues, filters, markersVersion]);
 
   const onMapUnmount = useCallback(() => {
     mapRef.current = null;

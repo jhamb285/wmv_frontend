@@ -63,6 +63,7 @@ interface MobileEventListProps {
   onDateChange?: (dates: string[]) => void;
   dismissSignal?: number;
   onActiveCardChange?: (venueId: string | null) => void;
+  onActiveOfferChange?: (offer: string | null) => void;
   presetRangeDates?: string[];
   navHeight?: number;
 }
@@ -81,6 +82,7 @@ const MobileEventList: React.FC<MobileEventListProps> = ({
   onDateChange,
   dismissSignal = 0,
   onActiveCardChange,
+  onActiveOfferChange,
   presetRangeDates = [],
   navHeight = 140,
 }) => {
@@ -110,16 +112,29 @@ const MobileEventList: React.FC<MobileEventListProps> = ({
     });
   }, [cards, activeDates, venueDateMap]);
 
+  const displayCardsRef = useRef(displayCards);
   const hasCards = displayCards.length > 0;
 
-  // Track active card via scroll position
+  // Track active card via scroll position — uses actual card element widths
   const handleCarouselScroll = useCallback(() => {
     const el = scrollRef.current;
     if (!el) return;
-    const scrollLeft = el.scrollLeft;
-    const cardWidth = el.offsetWidth * 0.85 + 12; // card width + gap
-    const index = Math.round(scrollLeft / cardWidth);
-    setActiveCardIndex(Math.min(index, displayCards.length - 1));
+
+    // Find which card's center is closest to the viewport center (robust across all screen sizes)
+    const viewportCenter = el.scrollLeft + el.offsetWidth / 2;
+    let closestIndex = 0;
+    let closestDist = Infinity;
+    const children = el.children;
+    for (let i = 0; i < children.length; i++) {
+      const child = children[i] as HTMLElement;
+      const childCenter = child.offsetLeft + child.offsetWidth / 2;
+      const dist = Math.abs(childCenter - viewportCenter);
+      if (dist < closestDist) {
+        closestDist = dist;
+        closestIndex = i;
+      }
+    }
+    setActiveCardIndex(Math.min(closestIndex, displayCards.length - 1));
   }, [displayCards.length]);
 
   // Reset carousel position AND immediately highlight first card when cards/filters change
@@ -161,22 +176,41 @@ const MobileEventList: React.FC<MobileEventListProps> = ({
     const activeCard = displayCards[startIndex];
     if (onActiveCardChange && activeCard) {
       onActiveCardChange(activeCard.venue.id);
+      const offer = activeCard.event.event_offers;
+      onActiveOfferChange?.(offer && !offer.toLowerCase().includes('no special offer') ? offer : null);
     } else if (onActiveCardChange) {
       onActiveCardChange(null);
+      onActiveOfferChange?.(null);
     }
-  }, [activeDates, displayCards, onActiveCardChange]);
+
+    // Mark that this effect handled the displayCards change (prevents Effect 2 from overwriting with stale index)
+    displayCardsRef.current = displayCards;
+  }, [activeDates, displayCards, onActiveCardChange, onActiveOfferChange]);
 
   // Notify parent of active card's venue ID on scroll/mode changes
   useEffect(() => {
+    // Skip if displayCards just changed — the reset effect above already notified with the correct index
+    if (displayCardsRef.current !== displayCards) {
+      displayCardsRef.current = displayCards;
+      return;
+    }
+
     if (mode === 'list' && hasCards && !isDismissed && onActiveCardChange) {
       const activeCard = displayCards[activeCardIndex];
       onActiveCardChange(activeCard?.venue.id || null);
+      const offer = activeCard?.event.event_offers;
+      onActiveOfferChange?.(offer && !offer.toLowerCase().includes('no special offer') ? offer : null);
     } else if (mode === 'marker' && markerVenueId && onActiveCardChange) {
       onActiveCardChange(markerVenueId);
+      // For marker mode, find the card to get the correct offer
+      const markerCard = displayCards.find(c => c.venue.id === markerVenueId);
+      const offer = markerCard?.event.event_offers;
+      onActiveOfferChange?.(offer && !offer.toLowerCase().includes('no special offer') ? offer : null);
     } else if (onActiveCardChange && (isDismissed || !hasCards)) {
       onActiveCardChange(null);
+      onActiveOfferChange?.(null);
     }
-  }, [activeCardIndex, mode, markerVenueId, hasCards, isDismissed, onActiveCardChange]);
+  }, [activeCardIndex, mode, markerVenueId, hasCards, isDismissed, onActiveCardChange, onActiveOfferChange, displayCards]);
 
   // Dismiss when parent signals (e.g. map click)
   useEffect(() => {

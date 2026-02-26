@@ -12,6 +12,7 @@ interface MobileHeroMapProps {
   isLoading: boolean;
   onMapClick?: () => void;
   highlightedVenueId?: string | null;
+  highlightedOffer?: string | null;
 }
 
 const MobileHeroMap: React.FC<MobileHeroMapProps> = ({
@@ -22,6 +23,7 @@ const MobileHeroMap: React.FC<MobileHeroMapProps> = ({
   isLoading,
   onMapClick,
   highlightedVenueId,
+  highlightedOffer,
 }) => {
   return (
     <div className="absolute inset-0">
@@ -37,6 +39,7 @@ const MobileHeroMap: React.FC<MobileHeroMapProps> = ({
         gestureMode="greedy"
         onMapClick={onMapClick}
         highlightedVenueId={highlightedVenueId}
+        highlightedOffer={highlightedOffer}
       />
 
     </div>

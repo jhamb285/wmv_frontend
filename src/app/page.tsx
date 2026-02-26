@@ -179,6 +179,7 @@ export default function Home() {
   const [listViewFullScreenId, setListViewFullScreenId] = useState<string | null>(null);
   const [mapClickCount, setMapClickCount] = useState(0);
   const [highlightedVenueId, setHighlightedVenueId] = useState<string | null>(null);
+  const [highlightedOffer, setHighlightedOffer] = useState<string | null>(null);
   const [presetRangeDates, setPresetRangeDates] = useState<string[]>([]);
   const [navHeight, setNavHeight] = useState(140);
 
@@ -342,6 +343,7 @@ export default function Home() {
                 isLoading={isLoading}
                 onMapClick={() => setMapClickCount(c => c + 1)}
                 highlightedVenueId={highlightedVenueId}
+                highlightedOffer={highlightedOffer}
               />
 
               {/* Event List — slides up from bottom when events exist */}
@@ -356,6 +358,7 @@ export default function Home() {
                 onDateChange={handleDateChange}
                 dismissSignal={mapClickCount}
                 onActiveCardChange={setHighlightedVenueId}
+                onActiveOfferChange={setHighlightedOffer}
                 presetRangeDates={presetRangeDates}
                 navHeight={navHeight}
               />
