@@ -157,9 +157,14 @@ function AutoScrollPills({ tags, isActive }: { tags: Array<{ label: string; bg: 
       animRef.current = requestAnimationFrame(animate);
     };
 
-    animRef.current = requestAnimationFrame(animate);
+    const delayTimer = setTimeout(() => {
+      animRef.current = requestAnimationFrame(animate);
+    }, 2000);
 
-    return () => cancelAnimationFrame(animRef.current);
+    return () => {
+      clearTimeout(delayTimer);
+      cancelAnimationFrame(animRef.current);
+    };
   }, [isActive, hasOverflow]);
 
   const handleTouchStart = () => { isPaused.current = true; };
