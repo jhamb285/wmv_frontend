@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useMemo, useEffect, useState } from 'react';
+import React, { useMemo } from 'react';
 import { Calendar } from 'lucide-react';
 import { Venue } from '@/types';
 import { parseDateFromFormat } from '@/lib/filters/date-utils';
+import { useVenueData } from '@/contexts/VenueDataContext';
 
 interface DatePillsRowProps {
   venues: Venue[];
@@ -16,22 +17,9 @@ const DatePillsRow: React.FC<DatePillsRowProps> = ({
   selectedDates,
   onDateChange,
 }) => {
-  const [filterOptions, setFilterOptions] = useState<{ dates?: string[] } | null>(null);
-
-  useEffect(() => {
-    const fetchFilterOptions = async () => {
-      try {
-        const response = await fetch('/api/filter-options');
-        if (!response.ok) throw new Error('Failed to fetch filter options');
-        const result = await response.json();
-        setFilterOptions(result.data || result);
-      } catch (error) {
-        console.error('Failed to fetch filter options:', error);
-        setFilterOptions({ dates: [] });
-      }
-    };
-    fetchFilterOptions();
-  }, []);
+  // Use shared filter options from context — no duplicate fetch
+  const { filterOptions: sharedFilterOptions } = useVenueData();
+  const filterOptions = { dates: sharedFilterOptions.dates };
 
   // Count events per date from venues
   const eventCountsByDate = useMemo(() => {

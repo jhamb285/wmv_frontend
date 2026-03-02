@@ -221,11 +221,14 @@ const MobileEventCard: React.FC<MobileEventCardProps> = ({
   const { event, venue } = card;
   const expandedRef = useRef<HTMLDivElement>(null);
   const [isDetailsExpanded, setIsDetailsExpanded] = useState(false);
-  // Build image list from real DB media, fall back to placeholders
-  const realImages: string[] = [];
-  if ((event as any).media_url_1) realImages.push((event as any).media_url_1);
-  if ((event as any).media_url_2) realImages.push((event as any).media_url_2);
-  const activeImages = realImages.length > 0 ? realImages : PLACEHOLDER_IMAGES;
+  // Build media list from real DB media, separating images from videos
+  const isVideoUrl = (u: string) => /\.(mp4|mov|webm)$/i.test(u);
+  const allMedia: Array<{ url: string; isVideo: boolean }> = [];
+  if ((event as any).media_url_1) allMedia.push({ url: (event as any).media_url_1, isVideo: isVideoUrl((event as any).media_url_1) });
+  if ((event as any).media_url_2) allMedia.push({ url: (event as any).media_url_2, isVideo: isVideoUrl((event as any).media_url_2) });
+  const realImages = allMedia.filter(m => !m.isVideo).map(m => m.url);
+  const activeImages = realImages.length > 0 ? realImages : (allMedia.length > 0 ? allMedia.map(m => m.url) : PLACEHOLDER_IMAGES);
+  const activeMediaTypes = realImages.length > 0 ? realImages.map(() => false) : (allMedia.length > 0 ? allMedia.map(m => m.isVideo) : PLACEHOLDER_IMAGES.map(() => false));
 
   // Lock body scroll when full-screen
   useEffect(() => {
@@ -379,12 +382,11 @@ const MobileEventCard: React.FC<MobileEventCardProps> = ({
             >
               {activeImages.map((src, idx) => (
                 <div key={idx} className="relative flex-1 min-w-0">
-                  <img
-                    src={src}
-                    alt={`${venue.venue_name} ${idx + 1}`}
-                    className="w-full h-auto block"
-                    draggable={false}
-                  />
+                  {activeMediaTypes[idx] ? (
+                    <video src={src} className="w-full h-auto block" muted playsInline preload="metadata" />
+                  ) : (
+                    <img src={src} alt={`${venue.venue_name} ${idx + 1}`} className="w-full h-auto block" draggable={false} />
+                  )}
                 </div>
               ))}
             </div>
@@ -877,13 +879,21 @@ const MobileEventCard: React.FC<MobileEventCardProps> = ({
         <div className="flex flex-col items-center flex-shrink-0" style={{ width: '100px' }}>
           <div className="w-[96px] h-[96px] rounded-xl overflow-hidden"
                style={{ border: '2px solid rgba(0,0,0,0.06)' }}>
-            <img
-              src={(event as any).media_url_1 || (event as any).media_url_2 || PLACEHOLDER_IMAGE}
-              alt={venue.venue_name}
-              className="w-full h-full object-cover"
-              onError={(e) => { (e.currentTarget as HTMLImageElement).src = PLACEHOLDER_IMAGE; }}
-              loading="lazy"
-            />
+            {(() => {
+              const u1 = (event as any).media_url_1 as string | undefined;
+              const u2 = (event as any).media_url_2 as string | undefined;
+              const isVid = (u: string) => /\.(mp4|mov|webm)$/i.test(u);
+              const imgSrc = (u1 && !isVid(u1)) ? u1 : (u2 && !isVid(u2)) ? u2 : null;
+              const vidSrc = !imgSrc ? (u1 || u2 || null) : null;
+              if (imgSrc) return (
+                <img src={imgSrc} alt={venue.venue_name} className="w-full h-full object-cover"
+                  onError={(e) => { (e.currentTarget as HTMLImageElement).src = PLACEHOLDER_IMAGE; }} loading="lazy" />
+              );
+              if (vidSrc) return (
+                <video src={vidSrc} className="w-full h-full object-cover" muted playsInline preload="metadata" />
+              );
+              return <img src={PLACEHOLDER_IMAGE} alt={venue.venue_name} className="w-full h-full object-cover" loading="lazy" />;
+            })()}
           </div>
         </div>
       </div>

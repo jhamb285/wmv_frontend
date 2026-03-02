@@ -155,3 +155,17 @@ export function getSecondaryCategories(dbPrimary: string): string[] {
 export function getGoogleMapsColor(colorName: string): string {
   return GOOGLE_MAPS_COLOR_MAP[colorName] || "red";
 }
+
+// Get light background color for cards based on category (8% opacity tint)
+export function getCategoryLightBg(categoryPrimary: string): { bg: string; border: string } {
+  const colorName = getCategoryColor(categoryPrimary);
+  const hex = getHexColor(colorName);
+  // Parse hex to RGB
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return {
+    bg: `rgba(${r},${g},${b},0.08)`,
+    border: `rgba(${r},${g},${b},0.35)`,
+  };
+}

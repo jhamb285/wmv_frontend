@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import type { Venue, HierarchicalFilterState, FilterState } from '@/types';
 import { getEventCategories } from '@/lib/category-utils';
+import { useVenueData } from '@/contexts/VenueDataContext';
 
 interface UseClientSideVenuesResult {
   allVenues: Venue[];
@@ -51,50 +52,8 @@ function convertHierarchicalToFlat(hierarchicalState: HierarchicalFilterState): 
 }
 
 export function useClientSideVenues(filters: HierarchicalFilterState): UseClientSideVenuesResult {
-  const [allVenues, setAllVenues] = useState<Venue[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  // Load all venues once on mount
-  useEffect(() => {
-    const fetchAllVenues = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
-
-
-        const response = await fetch('/api/venues', {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'Cache-Control': 'no-cache',
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const result = await response.json();
-
-        if (result.success && result.data) {
-          setAllVenues(result.data);
-          setError(null);
-        } else {
-          const errorMsg = result.error || 'Invalid response format';
-          setError(errorMsg);
-        }
-      } catch (err) {
-        const errorMsg = err instanceof Error ? err.message : 'Network error occurred';
-        setError(errorMsg);
-        console.error('Error fetching venues:', err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchAllVenues();
-  }, []); // Only load once on mount
+  // Use shared venue data from context — no duplicate fetches on page navigation
+  const { allVenues, isLoadingVenues: isLoading, venueError: error } = useVenueData();
 
   // Filter venues client-side - this runs instantly
   const filteredVenues = useMemo(() => {

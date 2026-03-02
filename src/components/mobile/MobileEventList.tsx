@@ -138,19 +138,30 @@ const MobileEventList: React.FC<MobileEventListProps> = ({
   }, [displayCards.length]);
 
   // Reset carousel position AND immediately highlight first card when cards/filters change
-  // When All Dates (activeDates=[]), auto-scroll to today's first card
+  // When All Dates (activeDates=[]), auto-scroll to today's first card (or nearest future)
   useEffect(() => {
     let startIndex = 0;
 
     if ((!activeDates || activeDates.length === 0) && displayCards.length > 0) {
       // All Dates mode — find first card with today's date
       const todayStr = new Date().toDateString();
+      const todayTime = new Date().setHours(0, 0, 0, 0);
       const todayIndex = displayCards.findIndex(card => {
         try {
           return new Date(card.event.event_date).toDateString() === todayStr;
         } catch { return false; }
       });
-      if (todayIndex >= 0) startIndex = todayIndex;
+      if (todayIndex >= 0) {
+        startIndex = todayIndex;
+      } else {
+        // No events today — find first card with nearest future date
+        const futureIndex = displayCards.findIndex(card => {
+          try {
+            return new Date(card.event.event_date).getTime() >= todayTime;
+          } catch { return false; }
+        });
+        if (futureIndex >= 0) startIndex = futureIndex;
+      }
     }
 
     setActiveCardIndex(startIndex);

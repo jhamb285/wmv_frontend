@@ -3,7 +3,7 @@
 // List view with integrated TopNav date picker
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Map as MapIcon, List as ListIcon } from 'lucide-react';
+import { Map as MapIcon } from 'lucide-react';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { useClientSideVenues } from '@/hooks/useClientSideVenues';
 import { type HierarchicalFilterState } from '@/types';
@@ -139,10 +139,71 @@ export default function ListView() {
 
   if (isLoading) {
     return (
-      <main className="h-screen w-full flex items-center justify-center bg-gray-900">
-        <div className="p-8 max-w-md text-center">
-          <h3 className="text-lg font-semibold mb-2 text-white">Loading Venues...</h3>
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mt-4"></div>
+      <main className="min-h-screen w-full" style={{ backgroundColor: '#f5f5f0' }}>
+        {/* Skeleton TopNav area */}
+        <div className="w-full px-4 pt-4 pb-2" style={{ paddingTop: 'max(16px, env(safe-area-inset-top))' }}>
+          <div className="flex items-center justify-between mb-3">
+            <div className="h-6 w-28 rounded-lg skeleton-pulse" style={{ background: 'rgba(0,0,0,0.08)' }} />
+            <div className="flex gap-2">
+              <div className="w-9 h-9 rounded-full skeleton-pulse" style={{ background: 'rgba(0,0,0,0.06)' }} />
+              <div className="w-9 h-9 rounded-full skeleton-pulse" style={{ background: 'rgba(0,0,0,0.06)' }} />
+            </div>
+          </div>
+          <div className="flex gap-2 mb-3 overflow-hidden">
+            {[56, 48, 64, 48, 56, 48].map((w, i) => (
+              <div key={i} className="h-8 rounded-full flex-shrink-0 skeleton-pulse" style={{ background: 'rgba(0,0,0,0.06)', width: `${w}px` }} />
+            ))}
+          </div>
+          <div className="flex gap-2 overflow-hidden">
+            {[72, 56, 80, 64, 72].map((w, i) => (
+              <div key={i} className="h-7 rounded-full flex-shrink-0 skeleton-pulse" style={{ background: 'rgba(0,0,0,0.06)', width: `${w}px` }} />
+            ))}
+          </div>
+        </div>
+
+        {/* Skeleton card list */}
+        <div className="px-4 mt-2 space-y-3">
+          <div className="flex items-center gap-2 py-2">
+            <div className="h-4 w-36 rounded skeleton-pulse" style={{ background: 'rgba(0,0,0,0.08)' }} />
+            <div className="h-4 w-8 rounded skeleton-pulse" style={{ background: 'rgba(0,0,0,0.05)' }} />
+          </div>
+
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div
+              key={i}
+              className="rounded-xl px-4 py-3.5 flex items-center gap-3"
+              style={{ background: 'rgba(0,0,0,0.03)', border: '1px solid rgba(0,0,0,0.06)' }}
+            >
+              <div className="w-[60px] h-[60px] rounded-xl flex-shrink-0 skeleton-pulse" style={{ background: 'rgba(0,0,0,0.06)' }} />
+              <div className="flex-1 min-w-0 space-y-2">
+                <div className="h-3 rounded skeleton-pulse" style={{ background: 'rgba(0,0,0,0.05)', width: '40%' }} />
+                <div className="h-4 rounded skeleton-pulse" style={{ background: 'rgba(0,0,0,0.08)', width: `${60 + (i % 3) * 12}%` }} />
+                <div className="h-3 rounded skeleton-pulse" style={{ background: 'rgba(0,0,0,0.05)', width: '55%' }} />
+              </div>
+              <div className="w-4 h-4 rounded skeleton-pulse flex-shrink-0" style={{ background: 'rgba(0,0,0,0.04)' }} />
+            </div>
+          ))}
+
+          <div className="flex items-center gap-2 py-2 mt-2">
+            <div className="h-4 w-40 rounded skeleton-pulse" style={{ background: 'rgba(0,0,0,0.08)' }} />
+            <div className="h-4 w-6 rounded skeleton-pulse" style={{ background: 'rgba(0,0,0,0.05)' }} />
+          </div>
+
+          {[1, 2, 3].map((i) => (
+            <div
+              key={`s2-${i}`}
+              className="rounded-xl px-4 py-3.5 flex items-center gap-3"
+              style={{ background: 'rgba(0,0,0,0.03)', border: '1px solid rgba(0,0,0,0.06)' }}
+            >
+              <div className="w-[60px] h-[60px] rounded-xl flex-shrink-0 skeleton-pulse" style={{ background: 'rgba(0,0,0,0.06)' }} />
+              <div className="flex-1 min-w-0 space-y-2">
+                <div className="h-3 rounded skeleton-pulse" style={{ background: 'rgba(0,0,0,0.05)', width: '35%' }} />
+                <div className="h-4 rounded skeleton-pulse" style={{ background: 'rgba(0,0,0,0.08)', width: `${55 + (i % 2) * 15}%` }} />
+                <div className="h-3 rounded skeleton-pulse" style={{ background: 'rgba(0,0,0,0.05)', width: '50%' }} />
+              </div>
+              <div className="w-4 h-4 rounded skeleton-pulse flex-shrink-0" style={{ background: 'rgba(0,0,0,0.04)' }} />
+            </div>
+          ))}
         </div>
       </main>
     );
@@ -150,7 +211,7 @@ export default function ListView() {
 
   return (
     <ThemeProvider>
-      <main className="min-h-screen w-full" style={{ backgroundColor: '#1a1917' }}>
+      <main className="min-h-screen w-full" style={{ backgroundColor: '#f5f5f0' }}>
         {/* Top Navigation with integrated date picker and category pills */}
         <TopNav
           navButtons={viewToggleButtons}
@@ -176,7 +237,7 @@ export default function ListView() {
         {/* Stacked Event Cards - fixed scroll area below navbar */}
         <div
           className="fixed md:top-[210px] left-1.5 md:left-2 right-1.5 md:right-2 bottom-0 z-10 overflow-y-auto rounded-2xl"
-          style={{ backgroundColor: '#1a1917', top: `${navHeight + 8}px` }}
+          style={{ backgroundColor: '#f5f5f0', top: `${navHeight + 8}px` }}
         >
           <StackedEventCards
             cards={cards}

@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import MapContainer from '@/components/map/MapContainer';
 import TopNav from '@/components/navigation/TopNav';
 import CategoryPills from '@/components/filters/CategoryPills';
@@ -21,6 +22,7 @@ import {
 import { type Venue, type HierarchicalFilterState } from '@/types';
 
 export default function Home() {
+  const router = useRouter();
   const [filters, setFilters] = useState<HierarchicalFilterState>({
     selectedPrimaries: {
       genres: [],
@@ -191,6 +193,8 @@ export default function Home() {
     setPresetRangeDates(dates);
   }, []);
 
+  // Show all dates by default — user can filter via date pills
+
   useEffect(() => {
     const hasSeenWelcome = sessionStorage.getItem('hasSeenWelcomePopup');
     if (!hasSeenWelcome && !isLoading && venues.length > 0) {
@@ -326,8 +330,8 @@ export default function Home() {
                 inlineMode={true}
               />
             }
-            onListToggle={() => setMobileView(prev => prev === 'map' ? 'list' : 'map')}
-            isListView={mobileView === 'list'}
+            onListToggle={() => router.push('/list')}
+            isListView={false}
             onPresetRangeDatesChange={handlePresetRangeDatesChange}
             onHeightChange={setNavHeight}
           />

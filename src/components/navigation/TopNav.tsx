@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { LogOut, Search, List, Map as MapIcon, ChevronDown } from 'lucide-react';
 import { Venue } from '@/types';
 import { parseDateFromFormat } from '@/lib/filters/date-utils';
+import { useVenueData } from '@/contexts/VenueDataContext';
 
 // ===========================================
 // DATE RANGE PRESET LOGIC
@@ -110,7 +111,9 @@ const TopNav: React.FC<TopNavProps> = ({
   const pathname = usePathname();
   const { user, signOut } = useAuth();
 
-  const [filterOptions, setFilterOptions] = useState<{ dates?: string[] } | null>(null);
+  // Use shared filter options from context — no duplicate fetch
+  const { filterOptions: sharedFilterOptions } = useVenueData();
+  const filterOptions = { dates: sharedFilterOptions.dates };
   const [selectedPreset, setSelectedPreset] = useState<DateRangePreset>('all');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -147,21 +150,7 @@ const TopNav: React.FC<TopNavProps> = ({
     }
   }, [isDropdownOpen]);
 
-  useEffect(() => {
-    if (!showDatePicker) return;
-    const fetchFilterOptions = async () => {
-      try {
-        const response = await fetch('/api/filter-options');
-        if (!response.ok) throw new Error('Failed to fetch filter options');
-        const result = await response.json();
-        setFilterOptions(result.data || result);
-      } catch (error) {
-        console.error('Failed to fetch filter options:', error);
-        setFilterOptions({ dates: [] });
-      }
-    };
-    fetchFilterOptions();
-  }, [showDatePicker]);
+  // Filter options now come from shared VenueDataContext — no fetch needed here
 
   const dateOptions = useMemo(() => {
     if (!datePickerProps) return [];
@@ -512,14 +501,20 @@ const TopNav: React.FC<TopNavProps> = ({
 
             {hideProfile ? (
               <button
-                onClick={() => router.push(pathname === '/list' ? '/' : '/list')}
+                onClick={() => {
+                  if (onListToggle) {
+                    onListToggle();
+                  } else {
+                    router.push(pathname === '/list' ? '/' : '/list');
+                  }
+                }}
                 className="w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 active:scale-90 flex-shrink-0"
                 style={{
                   background: 'rgba(59, 130, 246, 0.9)',
                 }}
-                aria-label={pathname === '/list' ? 'Show map' : 'Show event list'}
+                aria-label={isListView ? 'Show map' : 'Show event list'}
               >
-                {pathname === '/list' ? (
+                {isListView ? (
                   <MapIcon className="w-5 h-5 text-white" />
                 ) : (
                   <List className="w-5 h-5 text-white" />
@@ -637,7 +632,7 @@ const TopNav: React.FC<TopNavProps> = ({
             </div>
           )}
 
-          {/* ROW 3: Category Pills (only when explicitly provided) */}
+          {/* ROW 4: Category Pills (only when explicitly provided) */}
           {showCategoryPills && categoryPillsContent && (
             <div className="-mx-1 px-1">
               {categoryPillsContent}
