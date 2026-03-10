@@ -53,3 +53,12 @@ test-report-*.json
 
 # claude
 .claude/
+
+# scraper
+scraper/__pycache__/
+scraper/credentials.json
+scraper/scraped_events.csv
+scraper/*.csv
+scraper/*.log
+nul
+scraper/nul
