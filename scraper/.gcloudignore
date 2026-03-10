@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.env
+nul
+scraped_events.csv
+*.csv
+*.log

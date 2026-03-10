@@ -1260,6 +1260,46 @@ def write_to_google_sheets(events):
         save_to_csv(events)
 
 
+def write_to_supabase(events):
+    """Write event data to Supabase dubainight_scraper table."""
+    from supabase_config import supabase_client, SUPABASE_AVAILABLE
+
+    if not SUPABASE_AVAILABLE:
+        print("\n[WARN] Supabase not configured. Skipping Supabase write.")
+        return
+
+    try:
+        print("\n  Writing to Supabase (dubainight_scraper)...")
+        scraped_date = datetime.now().isoformat()
+
+        rows = []
+        for ev in events:
+            rows.append({
+                "instagram_id": ev.get("instagram_id", ""),
+                "event_date": ev.get("event_date", ""),
+                "event_time": ev.get("event_time", ""),
+                "event_name": ev.get("event_name", ""),
+                "event_category": ev.get("event_category", ""),
+                "context": ev.get("context", ""),
+                "venue_name": ev.get("venue_name", ""),
+                "venue_area": ev.get("venue_area", ""),
+                "scraped_date": scraped_date,
+            })
+
+        # Clear old data (matches Google Sheets clear + rewrite behavior)
+        supabase_client.table("dubainight_scraper").delete().neq("id", 0).execute()
+
+        # Insert in batches of 100
+        for i in range(0, len(rows), 100):
+            batch = rows[i:i + 100]
+            supabase_client.table("dubainight_scraper").insert(batch).execute()
+
+        print(f"  Successfully wrote {len(events)} events to Supabase (dubainight_scraper)!")
+
+    except Exception as e:
+        print(f"\n[ERROR] Failed to write to Supabase: {e}")
+
+
 def save_to_csv(events):
     """Fallback: save to CSV."""
     import csv
@@ -1330,6 +1370,9 @@ def main():
 
         # Step 6: Write to Sheet 3
         write_to_google_sheets(unique_events)
+
+        # Step 7: Write to Supabase
+        write_to_supabase(unique_events)
 
     finally:
         driver.quit()

@@ -22,8 +22,7 @@ import os
 import json
 from datetime import datetime
 
-import undetected_chromedriver as uc
-from selenium.webdriver.common.by import By
+import requests as http_requests
 from bs4 import BeautifulSoup
 
 try:
@@ -80,25 +79,21 @@ MAX_SHOW_MORE_CLICKS = None
 REQUEST_DELAY = 1.5
 
 
-# ─── Browser Setup ───────────────────────────────────────────────────────────
+# ─── HTTP Session Setup ─────────────────────────────────────────────────────
 
-def create_driver():
+def create_session():
     """
-    Create an undetected Chrome browser that bypasses Cloudflare.
-    Uses undetected-chromedriver which automatically patches Chrome
-    to avoid bot detection (Cloudflare, Queue-it, etc.).
+    Create a requests Session with browser-like headers.
+    Platinumlist serves full server-rendered HTML — no Selenium needed.
+    This works reliably in cloud environments (Cloud Run, etc.).
     """
-    options = uc.ChromeOptions()
-    options.add_argument("--headless=new")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
-    options.add_argument("--disable-gpu")
-    options.add_argument("--window-size=1920,1080")
-    options.page_load_strategy = "eager"
-
-    driver = uc.Chrome(options=options, version_main=None)
-    driver.set_page_load_timeout(60)
-    return driver
+    session = http_requests.Session()
+    session.headers.update({
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+    })
+    return session
 
 
 # ─── Date Parsing ────────────────────────────────────────────────────────────
@@ -158,11 +153,10 @@ def parse_event_date(raw_date_str):
 
 # ─── Listing Page Scraping ───────────────────────────────────────────────────
 
-def scrape_all_category_pages(driver):
+def scrape_all_category_pages(session):
     """
-    Scrape all category pages.
-    For each page: load, click "Show More" until all events visible,
-    then extract all event links.
+    Scrape all category pages using HTTP requests.
+    Platinumlist serves full server-rendered HTML, so no Selenium/JS needed.
     Returns list of partial event dicts (name, url, date, price, category).
     """
     print(f"\n{'='*60}")
@@ -175,57 +169,24 @@ def scrape_all_category_pages(driver):
         print(f"\n  [{cat_name}] {cat_url}")
 
         # Load page with retry
-        loaded = False
+        html = None
         for attempt in range(3):
             try:
-                driver.get(cat_url)
-                loaded = True
+                resp = session.get(cat_url, timeout=30)
+                resp.raise_for_status()
+                html = resp.text
                 break
             except Exception as e:
                 if attempt < 2:
-                    print(f"    [WARN] Timeout (attempt {attempt+1}/3), retrying...")
+                    print(f"    [WARN] Request failed (attempt {attempt+1}/3), retrying...")
                     time.sleep(3)
                 else:
                     print(f"    [ERROR] Failed to load: {e}")
 
-        if not loaded:
+        if not html:
             continue
 
-        time.sleep(4)  # wait for JS to render
-
-        # Click "Show More" button repeatedly until all events are visible.
-        # Safety: stop if no new event links appear after a click (prevents infinite loop).
-        click_count = 0
-        max_clicks = MAX_SHOW_MORE_CLICKS if MAX_SHOW_MORE_CLICKS is not None else 50
-        prev_link_count = 0
-        while click_count < max_clicks:
-            try:
-                btn = driver.find_element(
-                    By.CSS_SELECTOR,
-                    ".show-more-btn, .show-more__btn, [class*='show-more']"
-                )
-                if not btn.is_displayed():
-                    break
-                # Count current event links before click
-                cur_html = driver.page_source
-                cur_count = cur_html.count("/event-tickets/")
-                driver.execute_script("arguments[0].scrollIntoView(true);", btn)
-                time.sleep(0.5)
-                driver.execute_script("arguments[0].click();", btn)
-                click_count += 1
-                time.sleep(2.5)
-                # Check if new events appeared
-                new_count = driver.page_source.count("/event-tickets/")
-                if new_count <= cur_count:
-                    break  # No new events loaded — stop
-            except Exception:
-                break  # No more "Show More" button
-
-        if click_count:
-            print(f"    Clicked 'Show More' {click_count} times")
-
         # Parse page HTML
-        html = driver.page_source
         soup = BeautifulSoup(html, "html.parser")
 
         # Extract all event cards
@@ -395,8 +356,8 @@ def _extract_ga4_data(element, ev):
 
 # ─── Detail Page Scraping ────────────────────────────────────────────────────
 
-def scrape_detail_page(driver, event):
-    """Visit event detail page and enrich with time, venue, context, artist, price."""
+def scrape_detail_page(session, event):
+    """Fetch event detail page and enrich with time, venue, context, artist, price."""
     detail_url = event.get("detail_url", "")
     if not detail_url or "/event-tickets/" not in detail_url:
         return event
@@ -404,9 +365,11 @@ def scrape_detail_page(driver, event):
     print(f"    -> {detail_url[:90]}")
 
     try:
+        resp = None
         for attempt in range(3):
             try:
-                driver.get(detail_url)
+                resp = session.get(detail_url, timeout=30)
+                resp.raise_for_status()
                 break
             except Exception:
                 if attempt < 2:
@@ -414,9 +377,12 @@ def scrape_detail_page(driver, event):
                 else:
                     return event
 
+        if not resp:
+            return event
+
         time.sleep(REQUEST_DELAY)
 
-        html = driver.page_source
+        html = resp.text
         soup = BeautifulSoup(html, "html.parser")
 
         # ── 1. JSON-LD structured data (most reliable) ──
@@ -1466,6 +1432,46 @@ def write_to_google_sheets(events):
         save_to_csv(events)
 
 
+def write_to_supabase(events):
+    """Write event data to Supabase platinumlist_scraper table."""
+    from supabase_config import supabase_client, SUPABASE_AVAILABLE
+
+    if not SUPABASE_AVAILABLE:
+        print("\n[WARN] Supabase not configured. Skipping Supabase write.")
+        return
+
+    try:
+        print("\n  Writing to Supabase (platinumlist_scraper)...")
+        scraped_date = datetime.now().isoformat()
+
+        rows = []
+        for ev in events:
+            rows.append({
+                "instagram_id": "",
+                "event_date": ev.get("event_date", ""),
+                "event_time": ev.get("event_time", ""),
+                "event_name": ev.get("event_name", ""),
+                "event_category": ev.get("event_category", ""),
+                "context": _build_enriched_context(ev),
+                "venue_name": ev.get("venue_name", ""),
+                "venue_area": ev.get("venue_area", ""),
+                "scraped_date": scraped_date,
+            })
+
+        # Clear old data (matches Google Sheets clear + rewrite behavior)
+        supabase_client.table("platinumlist_scraper").delete().neq("id", 0).execute()
+
+        # Insert in batches of 100
+        for i in range(0, len(rows), 100):
+            batch = rows[i:i + 100]
+            supabase_client.table("platinumlist_scraper").insert(batch).execute()
+
+        print(f"  Successfully wrote {len(events)} events to Supabase (platinumlist_scraper)!")
+
+    except Exception as e:
+        print(f"\n[ERROR] Failed to write to Supabase: {e}")
+
+
 def save_to_csv(events):
     """Fallback: save to CSV."""
     import csv
@@ -1499,12 +1505,12 @@ def main():
     print(f"  Scraping {len(CATEGORY_PAGES)} category pages (Dubai only)")
     print("=" * 60)
 
-    print("\nLaunching headless Chrome (with anti-detection)...")
-    driver = create_driver()
+    print("\nCreating HTTP session (no browser needed)...")
+    session = create_session()
 
     try:
         # Step 1: Collect all event URLs from category pages
-        all_events = scrape_all_category_pages(driver)
+        all_events = scrape_all_category_pages(session)
         print(f"\nTotal events collected: {len(all_events)}")
 
         # Step 2: Filter noise
@@ -1535,7 +1541,7 @@ def main():
         print(f"\nScraping {len(unique_events)} detail pages...")
         for i, event in enumerate(unique_events):
             print(f"  [{i+1}/{len(unique_events)}] {event.get('event_name', 'Unknown')[:55]}")
-            scrape_detail_page(driver, event)
+            scrape_detail_page(session, event)
             time.sleep(0.3)
 
         # Step 5: Convert raw_date → event_date for any still missing
@@ -1570,9 +1576,12 @@ def main():
         # Step 7: Write to Sheet 2
         write_to_google_sheets(unique_events)
 
+        # Step 8: Write to Supabase
+        write_to_supabase(unique_events)
+
     finally:
-        driver.quit()
-        print("\nBrowser closed. Done!")
+        session.close()
+        print("\nSession closed. Done!")
 
 
 if __name__ == "__main__":

@@ -16,6 +16,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY dubainight_scraper.py .
 COPY party_finder_scraper.py .
 COPY platinumlist_scraper.py .
+COPY supabase_config.py .
 COPY credentials.json .
 COPY run_all_cloud.sh .
 RUN chmod +x run_all_cloud.sh
