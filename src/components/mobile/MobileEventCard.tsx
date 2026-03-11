@@ -20,6 +20,8 @@ import {
   Target,
   Globe,
   Tag,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 
 interface EventCardData {
@@ -221,14 +223,14 @@ const MobileEventCard: React.FC<MobileEventCardProps> = ({
   const { event, venue } = card;
   const expandedRef = useRef<HTMLDivElement>(null);
   const [isDetailsExpanded, setIsDetailsExpanded] = useState(false);
+  const [fullscreenMediaIdx, setFullscreenMediaIdx] = useState<number | null>(null);
   // Build media list from real DB media, separating images from videos
   const isVideoUrl = (u: string) => /\.(mp4|mov|webm)$/i.test(u);
   const allMedia: Array<{ url: string; isVideo: boolean }> = [];
   if ((event as any).media_url_1) allMedia.push({ url: (event as any).media_url_1, isVideo: isVideoUrl((event as any).media_url_1) });
   if ((event as any).media_url_2) allMedia.push({ url: (event as any).media_url_2, isVideo: isVideoUrl((event as any).media_url_2) });
-  const realImages = allMedia.filter(m => !m.isVideo).map(m => m.url);
-  const activeImages = realImages.length > 0 ? realImages : (allMedia.length > 0 ? allMedia.map(m => m.url) : PLACEHOLDER_IMAGES);
-  const activeMediaTypes = realImages.length > 0 ? realImages.map(() => false) : (allMedia.length > 0 ? allMedia.map(m => m.isVideo) : PLACEHOLDER_IMAGES.map(() => false));
+  const activeImages = allMedia.length > 0 ? allMedia.map(m => m.url) : PLACEHOLDER_IMAGES;
+  const activeMediaTypes = allMedia.length > 0 ? allMedia.map(m => m.isVideo) : PLACEHOLDER_IMAGES.map(() => false);
 
   // Lock body scroll when full-screen
   useEffect(() => {
@@ -381,9 +383,9 @@ const MobileEventCard: React.FC<MobileEventCardProps> = ({
               style={{ border: '1px solid rgba(0, 0, 0, 0.08)' }}
             >
               {activeImages.map((src, idx) => (
-                <div key={idx} className="relative flex-1 min-w-0">
+                <div key={idx} className="relative flex-1 min-w-0 cursor-pointer" onClick={(e) => { e.stopPropagation(); setFullscreenMediaIdx(idx); }}>
                   {activeMediaTypes[idx] ? (
-                    <video src={src} className="w-full h-auto block" muted playsInline preload="metadata" />
+                    <video src={src} className="w-full h-auto block" muted playsInline autoPlay loop />
                   ) : (
                     <img src={src} alt={`${venue.venue_name} ${idx + 1}`} className="w-full h-auto block" draggable={false} />
                   )}
@@ -816,6 +818,68 @@ const MobileEventCard: React.FC<MobileEventCardProps> = ({
             </button>
           </div>
         </div>
+
+        {/* Fullscreen Media Viewer */}
+        {fullscreenMediaIdx !== null && (
+          <div
+            className="fixed inset-0 z-[100] flex items-center justify-center"
+            style={{ background: 'rgba(0, 0, 0, 0.95)' }}
+            onClick={(e) => { e.stopPropagation(); setFullscreenMediaIdx(null); }}
+          >
+            <button
+              className="absolute top-4 right-4 z-10 w-10 h-10 rounded-full flex items-center justify-center"
+              style={{ background: 'rgba(255, 255, 255, 0.15)' }}
+              onClick={(e) => { e.stopPropagation(); setFullscreenMediaIdx(null); }}
+              aria-label="Close"
+            >
+              <X className="w-5 h-5 text-white" />
+            </button>
+            {/* Left arrow */}
+            {activeImages.length > 1 && (
+              <button
+                className="absolute left-3 z-10 w-9 h-9 rounded-full flex items-center justify-center"
+                style={{ background: 'rgba(255, 255, 255, 0.15)', top: '50%', transform: 'translateY(-50%)' }}
+                onClick={(e) => { e.stopPropagation(); setFullscreenMediaIdx((fullscreenMediaIdx - 1 + activeImages.length) % activeImages.length); }}
+              >
+                <ChevronLeft className="w-5 h-5 text-white" />
+              </button>
+            )}
+            {/* Right arrow */}
+            {activeImages.length > 1 && (
+              <button
+                className="absolute right-3 z-10 w-9 h-9 rounded-full flex items-center justify-center"
+                style={{ background: 'rgba(255, 255, 255, 0.15)', top: '50%', transform: 'translateY(-50%)' }}
+                onClick={(e) => { e.stopPropagation(); setFullscreenMediaIdx((fullscreenMediaIdx + 1) % activeImages.length); }}
+              >
+                <ChevronRight className="w-5 h-5 text-white" />
+              </button>
+            )}
+            <div className="max-w-full max-h-full p-4" onClick={(e) => e.stopPropagation()}>
+              {activeMediaTypes[fullscreenMediaIdx] ? (
+                <video
+                  src={activeImages[fullscreenMediaIdx]}
+                  className="max-w-full max-h-[85vh] rounded-lg"
+                  controls
+                  autoPlay
+                  loop
+                  playsInline
+                />
+              ) : (
+                <img
+                  src={activeImages[fullscreenMediaIdx]}
+                  alt={`${venue.venue_name} ${fullscreenMediaIdx + 1}`}
+                  className="max-w-full max-h-[85vh] object-contain rounded-lg"
+                />
+              )}
+            </div>
+            {/* Counter */}
+            {activeImages.length > 1 && (
+              <div className="absolute bottom-6 left-1/2 -translate-x-1/2 text-white/70 text-sm">
+                {fullscreenMediaIdx + 1} / {activeImages.length}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     );
   }
@@ -883,14 +947,19 @@ const MobileEventCard: React.FC<MobileEventCardProps> = ({
               const u1 = (event as any).media_url_1 as string | undefined;
               const u2 = (event as any).media_url_2 as string | undefined;
               const isVid = (u: string) => /\.(mp4|mov|webm)$/i.test(u);
-              const imgSrc = (u1 && !isVid(u1)) ? u1 : (u2 && !isVid(u2)) ? u2 : null;
-              const vidSrc = !imgSrc ? (u1 || u2 || null) : null;
-              if (imgSrc) return (
-                <img src={imgSrc} alt={venue.venue_name} className="w-full h-full object-cover"
+              if (u1 && isVid(u1)) return (
+                <video src={u1} className="w-full h-full object-cover" muted playsInline autoPlay loop />
+              );
+              if (u1) return (
+                <img src={u1} alt={venue.venue_name} className="w-full h-full object-cover"
                   onError={(e) => { (e.currentTarget as HTMLImageElement).src = PLACEHOLDER_IMAGE; }} loading="lazy" />
               );
-              if (vidSrc) return (
-                <video src={vidSrc} className="w-full h-full object-cover" muted playsInline preload="metadata" />
+              if (u2 && isVid(u2)) return (
+                <video src={u2} className="w-full h-full object-cover" muted playsInline autoPlay loop />
+              );
+              if (u2) return (
+                <img src={u2} alt={venue.venue_name} className="w-full h-full object-cover"
+                  onError={(e) => { (e.currentTarget as HTMLImageElement).src = PLACEHOLDER_IMAGE; }} loading="lazy" />
               );
               return <img src={PLACEHOLDER_IMAGE} alt={venue.venue_name} className="w-full h-full object-cover" loading="lazy" />;
             })()}

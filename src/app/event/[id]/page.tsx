@@ -151,7 +151,7 @@ export default function EventDetailPage() {
   const [related, setRelated] = useState<RelatedEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
+  const [lightboxMedia, setLightboxMedia] = useState<{ url: string; isVideo: boolean } | null>(null);
   const [showFullNotes, setShowFullNotes] = useState(false);
   const mainRef = useRef<HTMLElement>(null);
 
@@ -480,14 +480,15 @@ export default function EventDetailPage() {
       {/* ===== HERO IMAGE SECTION ===== */}
       <div className="relative w-full" style={{ height: heroImage ? '280px' : '120px' }}>
         {heroImage ? (
-          (event.media_type_1?.toUpperCase() === 'VIDEO') ? (
+          (event.media_type_1?.toUpperCase() === 'VIDEO' || /\.(mp4|mov|webm)$/i.test(heroImage)) ? (
             <video
               src={heroImage}
-              className="w-full h-full object-cover"
+              className="w-full h-full object-cover cursor-pointer"
               autoPlay
               muted
               loop
               playsInline
+              onClick={() => setLightboxMedia({ url: heroImage, isVideo: true })}
               onError={(e) => { (e.target as HTMLVideoElement).style.display = 'none'; }}
             />
           ) : (
@@ -495,7 +496,7 @@ export default function EventDetailPage() {
               src={heroImage}
               alt={event.event_name}
               className="w-full h-full object-cover cursor-pointer"
-              onClick={() => setLightboxImage(heroImage)}
+              onClick={() => setLightboxMedia({ url: heroImage, isVideo: false })}
               onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
             />
           )
@@ -710,8 +711,8 @@ export default function EventDetailPage() {
         {/* Side-by-side Images */}
         {hasSecondImage && (
           <div className="mt-6 flex gap-2">
-            <div className="flex-1 rounded-xl overflow-hidden" style={{ height: '160px' }}>
-              {event.media_type_1?.toUpperCase() === 'VIDEO' ? (
+            <div className="flex-1 rounded-xl overflow-hidden cursor-pointer" style={{ height: '160px' }} onClick={() => setLightboxMedia({ url: event.media_url_1, isVideo: event.media_type_1?.toUpperCase() === 'VIDEO' || /\.(mp4|mov|webm)$/i.test(event.media_url_1) })}>
+              {event.media_type_1?.toUpperCase() === 'VIDEO' || /\.(mp4|mov|webm)$/i.test(event.media_url_1) ? (
                 <video
                   src={event.media_url_1}
                   className="w-full h-full object-cover"
@@ -721,13 +722,12 @@ export default function EventDetailPage() {
                 <img
                   src={event.media_url_1}
                   alt={`${event.event_name} 1`}
-                  className="w-full h-full object-cover cursor-pointer"
-                  onClick={() => setLightboxImage(event.media_url_1)}
+                  className="w-full h-full object-cover"
                 />
               )}
             </div>
-            <div className="flex-1 rounded-xl overflow-hidden" style={{ height: '160px' }}>
-              {event.media_type_2?.toUpperCase() === 'VIDEO' ? (
+            <div className="flex-1 rounded-xl overflow-hidden cursor-pointer" style={{ height: '160px' }} onClick={() => setLightboxMedia({ url: event.media_url_2, isVideo: event.media_type_2?.toUpperCase() === 'VIDEO' || /\.(mp4|mov|webm)$/i.test(event.media_url_2) })}>
+              {event.media_type_2?.toUpperCase() === 'VIDEO' || /\.(mp4|mov|webm)$/i.test(event.media_url_2) ? (
                 <video
                   src={event.media_url_2}
                   className="w-full h-full object-cover"
@@ -737,8 +737,7 @@ export default function EventDetailPage() {
                 <img
                   src={event.media_url_2}
                   alt={`${event.event_name} 2`}
-                  className="w-full h-full object-cover cursor-pointer"
-                  onClick={() => setLightboxImage(event.media_url_2)}
+                  className="w-full h-full object-cover"
                 />
               )}
             </div>
@@ -927,7 +926,7 @@ export default function EventDetailPage() {
                       {r.media_url_1 && !/\.(mp4|mov|webm)$/i.test(r.media_url_1) ? (
                         <img src={r.media_url_1} alt={r.event_name} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                       ) : r.media_url_1 ? (
-                        <video src={r.media_url_1} className="w-full h-full object-cover" muted playsInline preload="metadata" />
+                        <video src={r.media_url_1} className="w-full h-full object-cover" muted playsInline autoPlay loop />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center">
                           <Music className="w-5 h-5 text-gray-400" />
@@ -955,27 +954,39 @@ export default function EventDetailPage() {
       </div>
       </div>
 
-      {/* ===== IMAGE LIGHTBOX ===== */}
-      {lightboxImage && (
+      {/* ===== MEDIA LIGHTBOX ===== */}
+      {lightboxMedia && (
         <div
           className="fixed inset-0 z-[9999] flex items-center justify-center"
           style={{ background: 'rgba(0,0,0,0.95)' }}
-          onClick={() => setLightboxImage(null)}
+          onClick={() => setLightboxMedia(null)}
         >
           <button
             className="absolute top-4 right-4 w-10 h-10 rounded-full flex items-center justify-center z-10"
             style={{ background: 'rgba(255,255,255,0.15)' }}
-            onClick={(e) => { e.stopPropagation(); setLightboxImage(null); }}
+            onClick={(e) => { e.stopPropagation(); setLightboxMedia(null); }}
           >
             <X className="w-5 h-5 text-white" />
           </button>
-          <img
-            src={lightboxImage}
-            alt={event.event_name}
-            className="max-w-full max-h-[90vh] object-contain"
-            style={{ touchAction: 'pinch-zoom' }}
-            onClick={(e) => e.stopPropagation()}
-          />
+          <div onClick={(e) => e.stopPropagation()}>
+            {lightboxMedia.isVideo ? (
+              <video
+                src={lightboxMedia.url}
+                className="max-w-full max-h-[85vh] rounded-lg"
+                controls
+                autoPlay
+                loop
+                playsInline
+              />
+            ) : (
+              <img
+                src={lightboxMedia.url}
+                alt={event.event_name}
+                className="max-w-full max-h-[90vh] object-contain"
+                style={{ touchAction: 'pinch-zoom' }}
+              />
+            )}
+          </div>
         </div>
       )}
 

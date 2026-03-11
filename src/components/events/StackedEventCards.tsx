@@ -125,14 +125,14 @@ const MinimalEventCard: React.FC<{
   const entryType = getEntryType(event);
   const specialOffer = getSpecialOffersDisplay(event.event_offers);
 
-  // Pick best media: prefer image URLs over video (.mp4) URLs
+  // Pick best media: prefer video for autoplay, fallback to image
   const url1 = (event as any).media_url_1 as string | undefined;
   const url2 = (event as any).media_url_2 as string | undefined;
   const isVideoUrl = (u: string) => /\.(mp4|mov|webm)$/i.test(u);
-  const imageUrl = (url1 && !isVideoUrl(url1)) ? url1
-    : (url2 && !isVideoUrl(url2)) ? url2
+  const videoUrl = (url1 && isVideoUrl(url1)) ? url1
+    : (url2 && isVideoUrl(url2)) ? url2
     : null;
-  const videoUrl = !imageUrl ? (url1 || url2 || null) : null;
+  const imageUrl = !videoUrl ? (url1 || url2 || null) : null;
 
   // Get category-based light background color
   const categoryPrimary = event.event_categories?.[0]?.primary || event.category || '';
@@ -163,7 +163,8 @@ const MinimalEventCard: React.FC<{
             className="w-full h-full object-cover"
             muted
             playsInline
-            preload="metadata"
+            autoPlay
+            loop
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
