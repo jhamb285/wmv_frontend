@@ -951,6 +951,10 @@ def write_to_supabase(events):
         print("\n[WARN] Supabase not configured. Skipping Supabase write.")
         return
 
+    if not events:
+        print("\n[WARN] No events to write. Skipping Supabase write (preserving existing data).")
+        return
+
     try:
         print("\n  Writing to Supabase (partyfinder_scraper)...")
         scraped_date = datetime.now().isoformat()
@@ -969,13 +973,13 @@ def write_to_supabase(events):
                 "scraped_date": scraped_date,
             })
 
-        # Clear old data (matches Google Sheets clear + rewrite behavior)
-        supabase_client.table("partyfinder_scraper").delete().neq("id", 0).execute()
-
-        # Insert in batches of 100
+        # Insert new data first (before deleting old data)
         for i in range(0, len(rows), 100):
             batch = rows[i:i + 100]
             supabase_client.table("partyfinder_scraper").insert(batch).execute()
+
+        # Only delete old data AFTER successful insert
+        supabase_client.table("partyfinder_scraper").delete().neq("scraped_date", scraped_date).execute()
 
         print(f"  Successfully wrote {len(events)} events to Supabase (partyfinder_scraper)!")
 
@@ -1145,10 +1149,16 @@ def main():
             print(f"      IG: {ev.get('instagram_id', 'N/A')} | Area: {ev.get('venue_area', 'N/A')[:60]}")
 
         # Step 9: Write to Google Sheets (or CSV fallback)
-        write_to_google_sheets(unique_events)
+        try:
+            write_to_google_sheets(unique_events)
+        except Exception as e:
+            print(f"\n[ERROR] Google Sheets write failed: {e}")
 
         # Step 10: Write to Supabase
-        write_to_supabase(unique_events)
+        try:
+            write_to_supabase(unique_events)
+        except Exception as e:
+            print(f"\n[ERROR] Supabase write failed: {e}")
 
     finally:
         driver.quit()
