@@ -25,10 +25,7 @@ from datetime import datetime
 import requests as http_requests
 from bs4 import BeautifulSoup
 
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.chrome.options import Options
-from webdriver_manager.chrome import ChromeDriverManager
+import undetected_chromedriver as uc
 
 try:
     import gspread
@@ -88,32 +85,18 @@ REQUEST_DELAY = 1.5
 
 def create_driver():
     """
-    Create a headless Chrome browser with anti-detection flags.
-    Platinumlist now uses Cloudflare queue protection that blocks plain HTTP
-    requests. Selenium with Chrome can pass through the queue.
+    Create undetected-chromedriver instance to bypass Cloudflare protection.
+    Regular Selenium gets blocked by Cloudflare on GCP Cloud Run IPs.
+    undetected-chromedriver patches Chrome to avoid bot detection.
     """
-    chrome_options = Options()
-    chrome_options.add_argument("--headless=new")
-    chrome_options.add_argument("--no-sandbox")
-    chrome_options.add_argument("--disable-dev-shm-usage")
-    chrome_options.add_argument("--disable-gpu")
-    chrome_options.add_argument("--disable-extensions")
-    chrome_options.add_argument("--disable-infobars")
-    chrome_options.add_argument("--disable-notifications")
-    chrome_options.add_argument("--disable-popup-blocking")
-    chrome_options.add_argument("--ignore-certificate-errors")
-    chrome_options.add_argument("--window-size=1920,1080")
-    chrome_options.add_argument(
-        "user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
-    )
-    chrome_options.add_argument("--disable-blink-features=AutomationControlled")
-    chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
-    chrome_options.add_experimental_option("useAutomationExtension", False)
-    chrome_options.page_load_strategy = "eager"
+    options = uc.ChromeOptions()
+    options.add_argument("--headless=new")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--disable-gpu")
+    options.add_argument("--window-size=1920,1080")
 
-    service = Service(ChromeDriverManager().install())
-    driver = webdriver.Chrome(service=service, options=chrome_options)
+    driver = uc.Chrome(options=options, version_main=146)
     driver.set_page_load_timeout(60)
     return driver
 
@@ -195,17 +178,25 @@ def scrape_all_category_pages(driver):
         for attempt in range(3):
             try:
                 driver.get(cat_url)
-                # Wait for page to load (queue page may take time)
-                time.sleep(5)
+                # Wait for page to load (Cloudflare may take time)
+                time.sleep(8)
+                current_url = driver.current_url
+                print(f"    [DEBUG] Current URL: {current_url[:100]}")
                 html = driver.page_source
-                # Check if we're stuck on queue page
-                if "queue.platinumlist.net" in driver.current_url:
-                    print(f"    [WARN] Hit queue page (attempt {attempt+1}/3), waiting...")
-                    time.sleep(15)
+                # Check if we're stuck on queue/challenge page
+                if "queue.platinumlist.net" in current_url or "challenge" in current_url:
+                    print(f"    [WARN] Hit queue/challenge page (attempt {attempt+1}/3), waiting 20s...")
+                    time.sleep(20)
                     html = driver.page_source
-                    if "queue.platinumlist.net" in driver.current_url:
+                    current_url = driver.current_url
+                    if "queue.platinumlist.net" in current_url or "challenge" in current_url:
                         html = None
                         continue
+                # Check if page has actual event content
+                if html and "event-tickets" not in html and len(html) < 5000:
+                    print(f"    [WARN] Page looks empty ({len(html)} chars), retrying...")
+                    time.sleep(10)
+                    html = driver.page_source
                 break
             except Exception as e:
                 if attempt < 2:
