@@ -1,9 +1,9 @@
-name: Deploy Frontend to Production
+name: Deploy Frontend to Development (Port 2310)
 
 on:
   push:
     branches:
-      - main
+      - v3
 
 jobs:
   deploy:
@@ -26,7 +26,7 @@ jobs:
             cd /opt/wmv-frontend
 
             # Pull latest code
-            git pull origin main
+            git pull origin v3
 
             # Install dependencies
             npm install

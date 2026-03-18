@@ -62,3 +62,4 @@ scraper/*.csv
 scraper/*.log
 nul
 scraper/nul
+.mcp.json
